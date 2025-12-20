@@ -21,6 +21,7 @@ from titans_pytorch.memory_models import(
     MemoryMLP,
     ResidualNorm
 )
+from titans_pytorch.symplectic_gate import SymplecticGating
 
 import einx
 from einops import einsum, rearrange, repeat, reduce, pack, unpack
@@ -289,7 +290,8 @@ class NeuralMemory(Module):
         accept_weight_residual = False,
         spectral_norm_surprises = False,
         gated_transition = False,
-        mem_model_norm_add_residual = True, # by default, layernorm output and add residual as proposed in TTT paper, but could be removed
+        mem_model_norm_add_residual = True, # by default, layernorm output and add residual as proposed in TTT paper,
+        use_symplectic_gating = False, # New argument
         default_model_kwargs: dict = dict(
             depth = 2,
             expansion_factor = 4.
@@ -506,9 +508,14 @@ class NeuralMemory(Module):
         # weight decay factor
 
         self.to_decay_factor = Sequential(
-            nn.Linear(dim, heads),
-            Rearrange('b n h -> (b h) n 1')
+            Linear(dim, heads),
+            Rearrange('b n h -> b n h 1')
         )
+
+        # Symplectic Gate Initialization
+        self.use_symplectic_gating = use_symplectic_gating
+        if use_symplectic_gating:
+            self.symplectic_gate = SymplecticGating(dim)
 
         # learned transition, as seeing instability when decreasing neural mem batch size
         # perhaps it can slowly learn to adjust from early residual to fully transitioning to new weights every batch size
@@ -626,6 +633,28 @@ class NeuralMemory(Module):
         chunked_seq = self.reduce_to_chunk_rep(seq, chunk_size = chunk_size)
 
         decay_factor = self.to_decay_factor(chunked_seq).sigmoid()
+
+        if self.use_symplectic_gating:
+             # Calculate Complexity: (B, Seq, 1)
+             complexity = self.symplectic_gate(seq)
+             
+             # Reduce to chunked representation to match decay_factor slope
+             # We use the same reduction as the sequence
+             complexity_chunked = self.reduce_to_chunk_rep(complexity, chunk_size = chunk_size)
+             
+             # Expand dimensions if necessary to match (B, N, H, 1) or whatever decay_factor is
+             # decay_factor is (B, N, H, 1) due to Rearrange
+             # complexity_chunked is likely (B, N, 1)
+             complexity_chunked = complexity_chunked.unsqueeze(-1)
+             
+             # Adaptive Decay Logic:
+             # If complexity is high (1.0), we want high retention.
+             # Retention is (1 - decay).
+             # So we want decay to be low (0.0).
+             # decay_new = decay_old * (1 - complexity)
+             decay_factor = decay_factor * (1. - complexity_chunked)
+
+        decay_factor = rearrange(decay_factor, 'b n h 1 -> (b h) n 1')
 
         need_layer_lr_mod = exists(self.to_layer_modulation) and num_chunks > 0
         has_momentum = exists(self.to_momentum)
