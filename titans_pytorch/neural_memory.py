@@ -509,13 +509,14 @@ class NeuralMemory(Module):
 
         self.to_decay_factor = Sequential(
             Linear(dim, heads),
-            Rearrange('b n h -> b n h 1')
+            Rearrange('b n h -> (b h) n 1')
         )
 
         # Symplectic Gate Initialization
         self.use_symplectic_gating = use_symplectic_gating
         if use_symplectic_gating:
             self.symplectic_gate = SymplecticGating(dim)
+            self.symplectic_complexity_scale = Parameter(torch.ones(1) * 0.5)
 
         # learned transition, as seeing instability when decreasing neural mem batch size
         # perhaps it can slowly learn to adjust from early residual to fully transitioning to new weights every batch size
@@ -639,22 +640,23 @@ class NeuralMemory(Module):
              complexity = self.symplectic_gate(seq)
              
              # Reduce to chunked representation to match decay_factor slope
-             # We use the same reduction as the sequence
-             complexity_chunked = self.reduce_to_chunk_rep(complexity, chunk_size = chunk_size)
+             # CRITICAL: Use MAX reduction instead of self.reduce_to_chunk_rep (Average/Attn).
+             # We want to detect if *any* part of the chunk has a twist. Averaging washes out fine-grained structure.
+             complexity_chunked = reduce(complexity, 'b (n c) d -> b n d', 'max', c = chunk_size)
              
-             # Expand dimensions if necessary to match (B, N, H, 1) or whatever decay_factor is
-             # decay_factor is (B, N, H, 1) due to Rearrange
-             # complexity_chunked is likely (B, N, 1)
+             # Expand dimensions if necessary to match (B, N, H, 1)
              complexity_chunked = complexity_chunked.unsqueeze(-1)
              
+             # Reshape decay_factor to (B, N, H, 1) to mix properly
+             # Currently it is (B*H, N, 1) from to_decay_factor
+             decay_factor = rearrange(decay_factor, '(b h) n 1 -> b n h 1', h = heads)
              # Adaptive Decay Logic:
-             # If complexity is high (1.0), we want high retention.
-             # Retention is (1 - decay).
-             # So we want decay to be low (0.0).
-             # decay_new = decay_old * (1 - complexity)
-             decay_factor = decay_factor * (1. - complexity_chunked)
+             # High Complexity -> High Retention (Low Decay)
+             # decay_new = decay_old * (1 - scale * complexity)
+             decay_factor = decay_factor * (1. - self.symplectic_complexity_scale * complexity_chunked)
 
-        decay_factor = rearrange(decay_factor, 'b n h 1 -> (b h) n 1')
+             # Reshape back to (B*H, N, 1)
+             decay_factor = rearrange(decay_factor, 'b n h 1 -> (b h) n 1')
 
         need_layer_lr_mod = exists(self.to_layer_modulation) and num_chunks > 0
         has_momentum = exists(self.to_momentum)

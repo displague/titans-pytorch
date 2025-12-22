@@ -19,6 +19,10 @@ class SymplecticGating(nn.Module):
         q = self.to_twist_q(x)
         k = self.to_twist_k(x)
 
+        # Normalize to Unit Norm to make the wedge product area meaningful (sin theta)
+        q = F.normalize(q, dim = -1)
+        k = F.normalize(k, dim = -1)
+
         # The Wedge Product Approximation:
         # Measures the area spanned by consecutive vectors.
         # 0 Area = Rational/Linear line.
@@ -33,10 +37,9 @@ class SymplecticGating(nn.Module):
         # Norm gives us the magnitude of the twist
         twist_magnitude = twist.norm(dim=-1, keepdim=True)
 
-        # Sigmoid normalizes this to a 0-1 "Complexity Score"
-        complexity_score = torch.sigmoid(twist_magnitude)
+        # Tanh normalizes this to a 0-1 "Complexity Score"
+        # unlike sigmoid, tanh(0) = 0, so rational data has 0 complexity.
+        complexity_score = torch.tanh(twist_magnitude)
 
         # Pad to match sequence length (prepend 0 to match input length)
-        # Original input x is [batch, seq, dim]
-        # q_curr is [batch, seq-1, dim]
         return F.pad(complexity_score, (0, 0, 1, 0), value=0.0)
