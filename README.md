@@ -3,6 +3,91 @@
 <img src="./fig1.png" width="400px"></img>
 
 ## Titans - Pytorch
+### Symplectic Gating and Manifold Paging (Objective Reduction)
+
+This project explores optional, research-only extensions to Titans’ Neural Memory based on symplectic “complexity” signals and Penrose-style Objective Reduction.
+
+- Baseline remains unchanged by default. All new behavior is behind flags.
+- Symplectic Gating: attenuates memory decay when local twist/complexity is high.
+- Manifold Paging: when complexity exceeds a threshold, gradient updates are routed to a fresh “page” (head group) to avoid destructive interference.
+
+Key flags on `NeuralMemory`:
+
+- `use_symplectic_gating: bool` — default False (off). When True, decay is modulated by a learned scale and a per-chunk max of a tanh(wedge) complexity.
+- `num_pages: int` — default 1. When >1, internal heads are expanded by pages (user_heads × num_pages). Writes route to the active page; reads pool across all pages.
+- `symplectic_page_threshold: float` — threshold for page switch (collapse). Lower values induce more frequent paging; default ~0.5.
+
+Minimal usage:
+
+```python
+from titans_pytorch import NeuralMemory
+
+# Baseline
+mem_base = NeuralMemory(dim=64, chunk_size=32)
+
+# Gating only
+mem_gate = NeuralMemory(dim=64, chunk_size=32, use_symplectic_gating=True)
+
+# Paging (Objective Reduction)
+mem_page = NeuralMemory(dim=64, chunk_size=32, use_symplectic_gating=True, num_pages=4)
+mem_page.symplectic_page_threshold = 0.2  # optional tuning
+```
+
+Trade-offs:
+
+- Interference: Paging can reduce catastrophic forgetting on conflicting tasks (A/B).
+- Overhead: Internal ops scale with pages × heads; paging increases compute. Consider smaller `num_pages` (e.g., 2), moderate `chunk_size`, and fewer heads.
+
+Benchmarks:
+
+- Paging Interference Benchmark: `benchmarks/benchmark_paging.py` compares Baseline vs Symplectic+Paging for interference and step-time overhead.
+- Symplectic Timing Benchmark: see `benchmarks/benchmark_symplectic.py`.
+
+Expected outcomes (toy setting):
+
+- Paging reduces interference (lower post-B loss on task A).
+- Some training step overhead; tune pages/threshold/chunk sizes to balance performance vs stability.
+
+Notes:
+
+## Tiny MAC Transformer demo: Symplectic Gating + Manifold Paging
+
+This repo includes an optional experimental path to reduce interference in the Neural Memory via Symplectic Gating and Manifold Paging ("Objective Reduction"). Baseline behavior is unchanged unless you enable the flags.
+
+### Quick CPU-friendly benchmark
+
+Run a tiny MAC Transformer benchmark that compares baseline vs gating+paging on synthetic data:
+
+```bash
+python benchmarks/benchmark_mac_paging.py --steps 100 --pages 2 --threshold 0.2
+```
+
+It prints training/validation loss means, wall-clock time, and page-switch counts per layer (when gating+paging is enabled).
+
+Tips if you see zero page switches:
+
+- Lower the threshold (e.g., `--threshold 0.05` to `0.15`) so the symplectic complexity triggers paging more readily on small CPU runs.
+- Increase steps or model size slightly (e.g., `--steps 200`, `--pages 3`) to encourage dynamics that cross the threshold.
+- Switches are reported per layer via `page_switch_events`; total is also summarized.
+
+### Training script flags (enwik8)
+
+In `train_mac.py`, the following flags toggle the experimental features:
+
+- `USE_SYMPLECTIC_GATING` (default False)
+- `NUM_PAGES` (default 1)
+- `SYMPLECTIC_PAGE_THRESHOLD` (default 0.5)
+
+The training script automatically falls back to CPU and disables Flex Attention when CUDA is not available.
+
+### Notes
+
+- Paging increases internal heads by `heads * num_pages` and routes writes to the active page while pooling reads.
+- Symplectic Gating uses a tanh-normalized wedge product measure of complexity and modulates decay to retain high-twist segments.
+- Page switches are thresholded by `SYMPLECTIC_PAGE_THRESHOLD` and counted per layer as `page_switch_events`.
+
+- These extensions are experimental and optional. Set `use_symplectic_gating=False` and `num_pages=1` for baseline behavior.
+- Reading pools across pages; writing goes to the active page only.
 
 Unofficial implementation of [Titans](https://arxiv.org/abs/2501.00663) in Pytorch. Will also contain some explorations into architectures beyond their simple 1-4 layer MLP for the neural memory module, if it works well to any degree.
 

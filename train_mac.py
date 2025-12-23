@@ -62,6 +62,11 @@ NEURAL_MEM_WEIGHT_RESIDUAL = True               # learning to accept contributio
 NEURAL_MEM_QKV_RECEIVES_DIFF_VIEW = True        # will allow the neural memory to select what layers from which to derive queries / keys / values, effectively allowing it to graft itself to the transformer in any way to be beneficial. this is to address an issue from a phd student who noted that the mem network is learning nothing more than wk @ wv. this also generalizes all possible ways to connect the neural memory to a transformer, a sort of NAS
 NEURAL_MEM_SPEC_NORM_SURPRISES = True           # applying lessons from Muon optimizer to surprise updates, by spectral norming the surprises
 
+# symplectic gating / manifold paging (Objective Reduction) - optional flags
+USE_SYMPLECTIC_GATING = False                   # keep baseline unchanged unless turned on
+NUM_PAGES = 1                                   # set >1 to enable paging
+SYMPLECTIC_PAGE_THRESHOLD = 0.5                 # page switch threshold; lower -> more frequent switching
+
 # experiment related
 
 PROJECT_NAME = 'titans-mac-transformer'
@@ -73,6 +78,12 @@ WANDB_ONLINE = False # turn this on to pipe experiment to cloud
 USE_ACCELERATED_SCAN = True
 USE_FLEX_ATTN = True
 USE_FAST_INFERENCE = False
+
+# device selection (fall back to CPU if CUDA not available)
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# ensure flex attention only used when CUDA is available
+USE_FLEX_ATTN = torch.cuda.is_available()
 
 # wandb experiment tracker
 
@@ -134,9 +145,13 @@ model = MemoryAsContextTransformer(
         default_step_transform_max_lr = NEURAL_MEM_MAX_LR,
         use_accelerated_scan = USE_ACCELERATED_SCAN,
         per_parameter_lr_modulation = MEMORY_MODEL_PER_LAYER_LEARNED_LR,
-        spectral_norm_surprises = NEURAL_MEM_SPEC_NORM_SURPRISES
+        spectral_norm_surprises = NEURAL_MEM_SPEC_NORM_SURPRISES,
+        # new optional flags
+        use_symplectic_gating = USE_SYMPLECTIC_GATING,
+        num_pages = NUM_PAGES,
+        symplectic_page_threshold = SYMPLECTIC_PAGE_THRESHOLD
     )
-).cuda()
+).to(DEVICE)
 
 # prepare enwik8 data
 
@@ -154,7 +169,7 @@ class TextSamplerDataset(Dataset):
     def __getitem__(self, index):
         rand_start = torch.randint(0, self.data.size(0) - self.seq_len, (1,))
         full_seq = self.data[rand_start: rand_start + self.seq_len + 1].long()
-        return full_seq.cuda()
+        return full_seq.to(DEVICE)
 
     def __len__(self):
         return self.data.size(0) // self.seq_len

@@ -292,6 +292,8 @@ class NeuralMemory(Module):
         gated_transition = False,
         mem_model_norm_add_residual = True, # by default, layernorm output and add residual as proposed in TTT paper,
         use_symplectic_gating = False, # New argument
+        num_pages = 1, # New argument: Manifold Paging for Objective Reduction
+        symplectic_page_threshold: float | None = None, # Optional override for page switch threshold
         default_model_kwargs: dict = dict(
             depth = 2,
             expansion_factor = 4.
@@ -300,6 +302,18 @@ class NeuralMemory(Module):
         super().__init__()
         dim_head = default(dim_head, dim)
         assert not (heads == 1 and dim_head != dim)
+
+        self.num_pages = num_pages
+        # Effectively multiply heads by pages.
+        # Each "Head" in the original sense now has 'num_pages' versions of itself.
+        # We route updates to only one of them at a time.
+        self.internal_heads = heads * num_pages
+        self.user_heads = heads # Keep track of logical heads
+        
+        # We keep 'heads' variable as 'internal_heads' for creating sub-modules that need the expanded dim
+        # But 'self.heads' must reflect USER intent (splitting input).
+        
+        heads_for_inner = self.internal_heads
 
         self.retrieve_chunk_size, self.store_chunk_size = pair(chunk_size)
 
@@ -323,28 +337,30 @@ class NeuralMemory(Module):
         self.retrieve_norm = nn.RMSNorm(dim) if pre_rmsnorm else nn.Identity()
         self.store_norm = nn.RMSNorm(dim) if pre_rmsnorm else nn.Identity()
 
-        self.multihead_rmsnorm = MultiheadRMSNorm(dim_head, heads) if post_rmsnorm else nn.Identity()
+        # use internal heads for any per-head normalization
+        self.multihead_rmsnorm = MultiheadRMSNorm(dim_head, heads_for_inner) if post_rmsnorm else nn.Identity()
 
-        self.q_norm = MultiheadRMSNorm(dim_head, heads) if qk_rmsnorm else nn.Identity()
-        self.k_norm = MultiheadRMSNorm(dim_head, heads) if qk_rmsnorm else nn.Identity()
+        self.q_norm = MultiheadRMSNorm(dim_head, heads_for_inner) if qk_rmsnorm else nn.Identity()
+        self.k_norm = MultiheadRMSNorm(dim_head, heads_for_inner) if qk_rmsnorm else nn.Identity()
 
         # maybe multi-headed
 
-        dim_inner = dim_head * heads
+        dim_inner = dim_head * self.internal_heads
 
-        self.heads = heads
+        # for internal tensor shaping, always use the expanded head count (pages * user heads)
+        self.heads = self.internal_heads
 
-        self.split_heads = Rearrange('b n (h d) -> b h n d', h = heads)
-        self.split_kv_heads = Rearrange('b n (h u d) -> b h (n u) d', h = heads, u = num_kv_per_token)
+        self.split_heads = Rearrange('b n (h d) -> b h n d', h = heads_for_inner)
+        self.split_kv_heads = Rearrange('b n (h u d) -> b h (n u) d', h = heads_for_inner, u = num_kv_per_token)
 
         self.merge_heads = Rearrange('b h n d -> b n (h d)')
-        self.combine_heads = LinearNoBias(dim_inner, dim) if heads > 1 else nn.Identity()
+        self.combine_heads = LinearNoBias(dim_inner, dim) if self.internal_heads > 1 else nn.Identity()
 
         self.retrieve_gate = Sequential(
-            LinearNoBias(dim, heads),
+            LinearNoBias(dim, heads_for_inner),
             Rearrange('b n h -> b h n 1'),
             nn.Sigmoid()
-        ) if heads > 1 else None
+        ) if self.internal_heads > 1 else None
 
         # memory model
 
@@ -382,7 +398,12 @@ class NeuralMemory(Module):
         memory_model_parameters = [*mem_model_params.values()]
 
         if per_head_learned_parameters:
-            memory_model_parameters = [repeat(p, '... -> h ...', h = heads) for p in memory_model_parameters]
+            # Expand to internal_heads by allocating distinct Parameter copies per head
+            expanded_params = []
+            for p in memory_model_parameters:
+                stacked = torch.stack([p.detach().clone() for _ in range(heads_for_inner)], dim=0)
+                expanded_params.append(nn.Parameter(stacked))
+            memory_model_parameters = expanded_params
 
         self.init_weight_shape = [p.shape for p in memory_model_parameters]
 
@@ -445,7 +466,7 @@ class NeuralMemory(Module):
         # learned adaptive learning rate
 
         self.to_adaptive_step = Sequential(
-            nn.Linear(dim, heads * num_kv_per_token),
+            nn.Linear(dim, heads_for_inner * num_kv_per_token),
             Rearrange('b n (h u) -> (b h) (n u)', u = num_kv_per_token)
         )
 
@@ -457,7 +478,7 @@ class NeuralMemory(Module):
         # momentum related
 
         self.to_momentum = Sequential(
-            nn.Linear(dim, heads * momentum_order),
+            nn.Linear(dim, heads_for_inner * momentum_order),
             Rearrange('b n (h o) -> o (b h) n 1', o = momentum_order)
         ) if momentum else None
 
@@ -472,8 +493,8 @@ class NeuralMemory(Module):
                 momentum_order += 1
 
             self.to_learned_momentum_combine = Sequential(
-                nn.Linear(dim, heads * momentum_order),
-                Rearrange('b n (h o) -> o (b h) n', h = heads),
+                nn.Linear(dim, heads_for_inner * momentum_order),
+                Rearrange('b n (h o) -> o (b h) n', h = heads_for_inner),
                 nn.Softmax(dim = 0),
             )
 
@@ -482,8 +503,8 @@ class NeuralMemory(Module):
         # per layer learning rate modulation
 
         self.to_layer_modulation = Sequential(
-            nn.Linear(dim, heads * self.num_memory_parameter_tensors),
-            Rearrange('b n (h w) -> w (b h) n', h = heads),
+            nn.Linear(dim, heads_for_inner * self.num_memory_parameter_tensors),
+            Rearrange('b n (h w) -> w (b h) n', h = heads_for_inner),
             nn.Sigmoid()
         ) if per_parameter_lr_modulation else None
 
@@ -492,7 +513,7 @@ class NeuralMemory(Module):
         # learned weight residual
 
         self.to_learned_weight_residual_mix = Sequential(
-            nn.Linear(dim, heads),
+            nn.Linear(dim, heads_for_inner),
             Rearrange('b n h -> b h n'),
             nn.Sigmoid()
         ) if accept_weight_residual else None
@@ -508,7 +529,7 @@ class NeuralMemory(Module):
         # weight decay factor
 
         self.to_decay_factor = Sequential(
-            Linear(dim, heads),
+            Linear(dim, heads_for_inner),
             Rearrange('b n h -> (b h) n 1')
         )
 
@@ -517,6 +538,17 @@ class NeuralMemory(Module):
         if use_symplectic_gating:
             self.symplectic_gate = SymplecticGating(dim)
             self.symplectic_complexity_scale = Parameter(torch.ones(1) * 0.5)
+            
+            # For Manifold Paging: Track the active page index
+            # We use a register_buffer for state that isn't a parameter but persists
+            self.register_buffer('active_page_index', torch.zeros(1, dtype=torch.long))
+            # Track number of page switches for logging
+            self.register_buffer('page_switch_events', torch.zeros(1, dtype=torch.long))
+            
+            # Threshold for "Objective Reduction" (Collapsing to a new page)
+            # This can be learned or fixed. Let's make it a parameter initialized to high value (0.7??)
+            # Actually, let's make it fixed for now to test stability.
+            self.symplectic_page_threshold = default(symplectic_page_threshold, 0.5)
 
         # learned transition, as seeing instability when decreasing neural mem batch size
         # perhaps it can slowly learn to adjust from early residual to fully transitioning to new weights every batch size
@@ -554,10 +586,14 @@ class NeuralMemory(Module):
         self,
         batch,
     ):
+        # We must init weights for ALL internal heads (User * Pages)
+        # self.heads tracks User Heads. self.internal_heads tracks Total Heads. (See init)
+        
         if self.per_head_learned_parameters:
+            # Parameters already have 'h' dim = internal_heads
             weights = repeat_dict_values(self.memory_model_parameter_dict, 'h ... -> (b h) ...', b = batch)
         else:
-            weights = repeat_dict_values(self.memory_model_parameter_dict, '... -> bh ...', bh = batch * self.heads)
+            weights = repeat_dict_values(self.memory_model_parameter_dict, '... -> bh ...', bh = batch * self.internal_heads)
 
         return weights
 
@@ -570,7 +606,7 @@ class NeuralMemory(Module):
         if self.per_head_learned_parameters:
             zeros = repeat_dict_values(zeros, 'h ... -> o (b h) ...', b = batch, o = self.momentum_order)
         else:
-            zeros = repeat_dict_values(zeros, '... -> o bh ...', bh = batch * self.heads, o = self.momentum_order)
+            zeros = repeat_dict_values(zeros, '... -> o bh ...', bh = batch * self.internal_heads, o = self.momentum_order)
 
         return zeros
 
@@ -658,6 +694,56 @@ class NeuralMemory(Module):
              # Reshape back to (B*H, N, 1)
              decay_factor = rearrange(decay_factor, 'b n h 1 -> (b h) n 1')
 
+             # --- MANIFOLD PAGING (OBJECTIVE REDUCTION) ---
+             if self.num_pages > 1:
+                 # Check if we need to undergo Objective Reduction (Page Switch)
+                 # We look at the max complexity in the batch/seq
+                 # If "Twist" is too high, we flip the page.
+                 max_complexity = complexity.max().item()
+                 
+                 # Only switch page if complexity exceeds threshold
+                 if max_complexity > self.symplectic_page_threshold:
+                     # increment page switch counter
+                     self.page_switch_events.add_(1)
+                     # switch page
+                     self.active_page_index.copy_((self.active_page_index + 1) % self.num_pages)
+                
+                 # Create Page Mask
+                 # adaptive_lr shape: (B, H_total * Num_KV) ? 
+                 # Wait, look at line 631: adaptive_lr = self.to_adaptive_step(seq)
+                 # to_adaptive_step projects to: heads * num_kv_per_token
+                 # rearranges to: (b h) (n u)
+                 
+                 # We need to construct a mask of shape (B, Total_Heads)
+                 # Active Page logic:
+                 # Total Heads = User_Heads * Num_Pages
+                 # We want to select heads corresponding to [Active_Page * User_Heads ... (Active_Page+1) * User_Heads]
+                 
+                 current_page = self.active_page_index.item()
+                 start_head = current_page * self.user_heads
+                 end_head = start_head + self.user_heads
+                 
+                 # mask: (Total_Heads,)
+                 page_mask = torch.zeros(self.internal_heads, device=seq.device)
+                 page_mask[start_head:end_head] = 1.0
+                 
+                 # Broadcast to (B, H, 1) or similar.
+                 # adaptive_lr is modified later at line 693: 'b (n c u) -> (b n) (c u)'? 
+                 # Let's look at where adaptive_lr is created.
+                 # Line 631: adaptive_lr = self.to_adaptive_step(seq) -> (B, N, H*U) (implicitly from Linear)
+                 # Line 449: Rearrange('b n (h u) -> (b h) (n u)', u = num_kv_per_token)
+                 
+                 # Wait, self.to_adaptive_step definition (Line 447):
+                 # nn.Linear(dim, heads * num_kv_per_token)
+                 # Rearrange('b n (h u) -> (b h) (n u)')
+                 
+                 # So adaptive_lr output from line 632 is (B*H_total, N*U).
+                 # We need to reshape it to (B, H_total, N*U) to apply the mask.
+                 
+                 adaptive_lr = rearrange(adaptive_lr, '(b h) nu -> b h nu', h=self.internal_heads)
+                 adaptive_lr = adaptive_lr * page_mask[None, :, None]
+                 adaptive_lr = rearrange(adaptive_lr, 'b h nu -> (b h) nu')
+
         need_layer_lr_mod = exists(self.to_layer_modulation) and num_chunks > 0
         has_momentum = exists(self.to_momentum)
 
@@ -719,8 +805,7 @@ class NeuralMemory(Module):
 
             weights_for_surprise = weights_for_surprise + prev_weights
 
-        # flatten batch and time if surprise depends on previous layer memory model
-
+        # flatten batch and time for per-sample gradient mapping
         weights_for_surprise = rearrange_dict_values(weights_for_surprise, 'b n ... -> (b n) ...')
 
         # get grads and extra auxiliary loss (for backwarding through qkv projection in base neural memory module)
