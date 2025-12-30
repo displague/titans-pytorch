@@ -50,6 +50,7 @@ NeuralMemState = namedtuple('NeuralMemState', [
     'cache_store_segment',
     'states',
     'updates',
+    'active_page_indices'
 ])
 
 def mem_state_detach(
@@ -540,8 +541,7 @@ class NeuralMemory(Module):
             self.symplectic_complexity_scale = Parameter(torch.ones(1) * 0.5)
             
             # For Manifold Paging: Track the active page index
-            # We use a register_buffer for state that isn't a parameter but persists
-            self.register_buffer('active_page_index', torch.zeros(1, dtype=torch.long))
+            # REMOVED global buffer 'active_page_index' in favor of per-sample state in NeuralMemState
             # Track number of page switches for logging
             self.register_buffer('page_switch_events', torch.zeros(1, dtype=torch.long))
             
@@ -618,7 +618,8 @@ class NeuralMemory(Module):
         seq_index = 0,
         prev_weights = None,
         mask: Tensor | None = None,
-        return_surprises = True
+        return_surprises = True,
+        active_page_indices: Tensor | None = None
     ):
         if self.qkv_receives_diff_views:
             _, batch, seq_len = seq.shape[:3]
@@ -694,55 +695,79 @@ class NeuralMemory(Module):
              # Reshape back to (B*H, N, 1)
              decay_factor = rearrange(decay_factor, 'b n h 1 -> (b h) n 1')
 
+
              # --- MANIFOLD PAGING (OBJECTIVE REDUCTION) ---
              if self.num_pages > 1:
+                 # Initialize active_page_indices if None (First chunk)
+                 if not exists(active_page_indices):
+                     active_page_indices = torch.zeros(batch, dtype=torch.long, device=seq.device)
+
                  # Check if we need to undergo Objective Reduction (Page Switch)
-                 # We look at the max complexity in the batch/seq
-                 # If "Twist" is too high, we flip the page.
-                 max_complexity = complexity.max().item()
+                 # We look at the max complexity in the chunk per sample.
+                 # complexity: (B, ChunkLen, 1)
+                 # max_complexity per sample: (B, 1)
+                 max_complexity_per_sample = reduce(complexity, 'b n 1 -> b 1', 'max')
                  
-                 # Only switch page if complexity exceeds threshold
-                 if max_complexity > self.symplectic_page_threshold:
-                     # increment page switch counter
-                     self.page_switch_events.add_(1)
-                     # switch page
-                     self.active_page_index.copy_((self.active_page_index + 1) % self.num_pages)
-                
+                 # Determine which samples need to switch page
+                 should_switch = (max_complexity_per_sample > self.symplectic_page_threshold).squeeze(-1) # (B,)
+                 
+                 # Increment logging counter (approximate, counts events not total switches)
+                 if should_switch.any():
+                     self.page_switch_events.add_(should_switch.sum())
+                 
+                 # Switch pages for the samples that triggered the threshold
+                 active_page_indices = torch.where(
+                     should_switch,
+                     (active_page_indices + 1) % self.num_pages,
+                     active_page_indices
+                 )
+
+                 # Update active_page_indices for next state return
+                 # (It stays as tensor for now)
+
                  # Create Page Mask
-                 # adaptive_lr shape: (B, H_total * Num_KV) ? 
-                 # Wait, look at line 631: adaptive_lr = self.to_adaptive_step(seq)
-                 # to_adaptive_step projects to: heads * num_kv_per_token
-                 # rearranges to: (b h) (n u)
-                 
                  # We need to construct a mask of shape (B, Total_Heads)
-                 # Active Page logic:
-                 # Total Heads = User_Heads * Num_Pages
-                 # We want to select heads corresponding to [Active_Page * User_Heads ... (Active_Page+1) * User_Heads]
+                 # where Total_Heads = User_Heads * Num_Pages.
+                 # For each sample b, only heads [page[b]*UserH : (page[b]+1)*UserH] should be active.
                  
-                 current_page = self.active_page_index.item()
-                 start_head = current_page * self.user_heads
-                 end_head = start_head + self.user_heads
+                 # Create a range [0, 1, ..., InternalHeads-1]
+                 head_indices = torch.arange(self.internal_heads, device=seq.device).unsqueeze(0) # (1, TotalH)
                  
-                 # mask: (Total_Heads,)
-                 page_mask = torch.zeros(self.internal_heads, device=seq.device)
-                 page_mask[start_head:end_head] = 1.0
+                 # Determine valid ranges per sample
+                 # min_valid = page[b] * UserH
+                 # max_valid = (page + 1) * UserH
+                 min_valid = (active_page_indices * self.user_heads).unsqueeze(1) # (B, 1)
+                 max_valid = ((active_page_indices + 1) * self.user_heads).unsqueeze(1) # (B, 1)
                  
-                 # Broadcast to (B, H, 1) or similar.
-                 # adaptive_lr is modified later at line 693: 'b (n c u) -> (b n) (c u)'? 
-                 # Let's look at where adaptive_lr is created.
-                 # Line 631: adaptive_lr = self.to_adaptive_step(seq) -> (B, N, H*U) (implicitly from Linear)
-                 # Line 449: Rearrange('b n (h u) -> (b h) (n u)', u = num_kv_per_token)
+                 # Mask is 1 where min_valid <= index < max_valid
+                 page_mask = (head_indices >= min_valid) & (head_indices < max_valid) # (B, TotalH)
+                 page_mask = page_mask.float()
                  
-                 # Wait, self.to_adaptive_step definition (Line 447):
-                 # nn.Linear(dim, heads * num_kv_per_token)
-                 # Rearrange('b n (h u) -> (b h) (n u)')
-                 
-                 # So adaptive_lr output from line 632 is (B*H_total, N*U).
-                 # We need to reshape it to (B, H_total, N*U) to apply the mask.
-                 
+                 # Apply mask to adaptive_lr
+                 # adaptive_lr comes from to_adaptive_step: (B*H_total, N*U)
+                 # Reshape to (B, H_total, N*U)
                  adaptive_lr = rearrange(adaptive_lr, '(b h) nu -> b h nu', h=self.internal_heads)
-                 adaptive_lr = adaptive_lr * page_mask[None, :, None]
+                 
+                 # Apply mask
+                 adaptive_lr = adaptive_lr * page_mask.unsqueeze(-1)
+                 
+                 # Reshape back
                  adaptive_lr = rearrange(adaptive_lr, 'b h nu -> (b h) nu')
+
+                 # CRITICAL FIX: Also mask decay_factor!
+                 # If we don't, inactive pages will decay (gate < 1) but receive 0 update, causing forgetting.
+                 # We want decay=0 (gate=1) for inactive pages to preserve memory exactly.
+                 
+                 # decay_factor is (B*H, N, 1). Reshape to (B, H, N, 1)
+                 decay_factor = rearrange(decay_factor, '(b h) n 1 -> b h n 1', h=self.internal_heads)
+                 
+                 # Apply mask. page_mask is (B, H).
+                 decay_factor = decay_factor * page_mask.unsqueeze(-1).unsqueeze(-1)
+                 
+                 # Reshape back
+                 decay_factor = rearrange(decay_factor, 'b h n 1 -> (b h) n 1')
+
+
 
         need_layer_lr_mod = exists(self.to_layer_modulation) and num_chunks > 0
         has_momentum = exists(self.to_momentum)
@@ -853,7 +878,8 @@ class NeuralMemory(Module):
 
         if num_chunks == 0:
             updates = rearrange_dict_values(weights, 'bh ... -> bh 1 ...')
-            next_store_state = NeuralMemState(next_seq_len_index, weights, remainder, past_state, updates)
+            updates = rearrange_dict_values(weights, 'bh ... -> bh 1 ...')
+            next_store_state = NeuralMemState(next_seq_len_index, weights, remainder, past_state, updates, active_page_indices)
 
             output = (updates, next_store_state)
 
@@ -918,7 +944,9 @@ class NeuralMemory(Module):
 
         next_state = (next_last_update, next_last_momentum)
 
-        next_store_state = NeuralMemState(next_seq_len_index, weights, remainder, next_state, updates)
+        next_state = (next_last_update, next_last_momentum)
+
+        next_store_state = NeuralMemState(next_seq_len_index, weights, remainder, next_state, updates, active_page_indices)
 
         # return updates to neural memory at all chunked timesteps + neural mem cache / state to be fed back
 
@@ -1047,10 +1075,12 @@ class NeuralMemory(Module):
 
         # handle previous state init
 
-        if not exists(state):
-            state = (0, None, None, None, None)
+        # handle previous state init
 
-        seq_index, weights, cache_store_seq, past_state, updates = state
+        if not exists(state):
+            state = (0, None, None, None, None, None)
+
+        seq_index, weights, cache_store_seq, past_state, updates, active_page_indices = state
 
         # store
 
@@ -1129,12 +1159,14 @@ class NeuralMemory(Module):
                 past_state = past_state,
                 prev_weights = prev_weights,
                 mask = maybe_store_mask,
-                return_surprises = True
+                return_surprises = True,
+                active_page_indices = active_page_indices
             )
 
             weights = next_neural_mem_state.weights
             seq_index = next_neural_mem_state.seq_index
             past_state = next_neural_mem_state.states
+            active_page_indices = next_neural_mem_state.active_page_indices
 
             updates = accum_updates(updates, next_updates)
 
