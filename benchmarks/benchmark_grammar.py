@@ -98,28 +98,45 @@ if __name__ == "__main__":
     symplectic_mem = NeuralMemory(
         dim=dim,
         chunk_size=16,
-        use_symplectic_gating=True
+        use_symplectic_gating=True,
+        num_pages=2,
+        symplectic_page_threshold=0.4 # Slightly lower threshold to encourage switching
+    ).to(device)
+    
+    # 3. DMD
+    dmd_mem = NeuralMemory(
+        dim=dim,
+        chunk_size=16,
+        use_dmd_gating=True,
+        num_pages=2,
+        symplectic_page_threshold=0.4
     ).to(device)
     
     # Run
     loss_base = train_grammar_task("Baseline", baseline_mem, steps=steps, seq_len=seq_len, dim=dim, device=device)
     loss_symp = train_grammar_task("Symplectic", symplectic_mem, steps=steps, seq_len=seq_len, dim=dim, device=device)
+    loss_dmd  = train_grammar_task("DMD", dmd_mem, steps=steps, seq_len=seq_len, dim=dim, device=device)
     
     # Results
     base_final = sum(loss_base[-20:]) / 20
     symp_final = sum(loss_symp[-20:]) / 20
+    dmd_final  = sum(loss_dmd[-20:]) / 20
     
-    improv = (base_final - symp_final) / base_final * 100
+    improv_symp = (base_final - symp_final) / base_final * 100
+    improv_dmd  = (base_final - dmd_final) / base_final * 100
     
     print("\n" + "="*50)
     print(f"RESULTS (Structured Grammar)")
     print("="*50)
     print(f"Baseline Final Loss:   {base_final:.6f}")
-    print(f"Symplectic Final Loss: {symp_final:.6f}")
-    print(f"Improvement:           {improv:+.2f}%")
+    print(f"Symplectic Final Loss: {symp_final:.6f} (Imp: {improv_symp:+.2f}%)")
+    print(f"DMD Final Loss:        {dmd_final:.6f} (Imp: {improv_dmd:+.2f}%)")
     print("="*50)
     
-    if improv > 0:
-        print("\nSUCCESS: Symplectic Gate successfully utilized the 'Grammar' structure.")
-    else:
-        print("\nRESULT: Structure was not sufficient to trigger Topological Preservation.")
+    best_strategy = "Baseline"
+    if symp_final < base_final and symp_final < dmd_final:
+        best_strategy = "Symplectic"
+    elif dmd_final < base_final:
+        best_strategy = "DMD"
+        
+    print(f"\nBest Strategy: {best_strategy}")

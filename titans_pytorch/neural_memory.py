@@ -22,6 +22,7 @@ from titans_pytorch.memory_models import(
     ResidualNorm
 )
 from titans_pytorch.symplectic_gate import SymplecticGating
+from titans_pytorch.dmd import DynamicModeDecomposition
 
 import einx
 from einops import einsum, rearrange, repeat, reduce, pack, unpack
@@ -293,6 +294,7 @@ class NeuralMemory(Module):
         gated_transition = False,
         mem_model_norm_add_residual = True, # by default, layernorm output and add residual as proposed in TTT paper,
         use_symplectic_gating = False, # New argument
+        use_dmd_gating = False, # New argument
         num_pages = 1, # New argument: Manifold Paging for Objective Reduction
         symplectic_page_threshold: float | None = None, # Optional override for page switch threshold
         default_model_kwargs: dict = dict(
@@ -550,6 +552,20 @@ class NeuralMemory(Module):
             # Actually, let's make it fixed for now to test stability.
             self.symplectic_page_threshold = default(symplectic_page_threshold, 0.5)
 
+        self.use_dmd_gating = use_dmd_gating
+        if use_dmd_gating:
+             # Rank=None implies full rank SVD
+             self.dmd = DynamicModeDecomposition(rank=None)
+             # DMD complexity can be high, so we might want a different scale init?
+             self.dmd_complexity_scale = Parameter(torch.ones(1) * 0.5)
+             
+             if not hasattr(self, 'page_switch_events'):
+                 self.register_buffer('page_switch_events', torch.zeros(1, dtype=torch.long))
+
+             # Default threshold for DMD might need tuning (DMD error is ~0.5 for random)
+             self.symplectic_page_threshold = default(symplectic_page_threshold, 0.4)
+
+
         # learned transition, as seeing instability when decreasing neural mem batch size
         # perhaps it can slowly learn to adjust from early residual to fully transitioning to new weights every batch size
 
@@ -672,9 +688,21 @@ class NeuralMemory(Module):
 
         decay_factor = self.to_decay_factor(chunked_seq).sigmoid()
 
-        if self.use_symplectic_gating:
-             # Calculate Complexity: (B, Seq, 1)
-             complexity = self.symplectic_gate(seq)
+        decay_factor = self.to_decay_factor(chunked_seq).sigmoid()
+
+        if self.use_symplectic_gating or self.use_dmd_gating:
+             # Calculate Complexity
+             if self.use_symplectic_gating:
+                 # (B, Seq, 1)
+                 complexity = self.symplectic_gate(seq)
+                 scale_param = self.symplectic_complexity_scale
+             elif self.use_dmd_gating:
+                 # (B,) -> Broadcast to (B, Seq, 1)
+                 # DMD gives global error for the window. We normalize it.
+                 dmd_error = self.dmd(seq)
+                 # Tanh to squash to [0,1]
+                 complexity = torch.tanh(dmd_error).view(-1, 1, 1).expand(-1, seq.shape[1], 1)
+                 scale_param = self.dmd_complexity_scale
              
              # Reduce to chunked representation to match decay_factor slope
              # CRITICAL: Use MAX reduction instead of self.reduce_to_chunk_rep (Average/Attn).
@@ -690,7 +718,7 @@ class NeuralMemory(Module):
              # Adaptive Decay Logic:
              # High Complexity -> High Retention (Low Decay)
              # decay_new = decay_old * (1 - scale * complexity)
-             decay_factor = decay_factor * (1. - self.symplectic_complexity_scale * complexity_chunked)
+             decay_factor = decay_factor * (1. - scale_param * complexity_chunked)
 
              # Reshape back to (B*H, N, 1)
              decay_factor = rearrange(decay_factor, 'b n h 1 -> (b h) n 1')
