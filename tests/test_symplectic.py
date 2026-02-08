@@ -124,3 +124,53 @@ def test_symplectic_gate_gated_diag_detects_twist():
     twist_mean = gate(twist).mean().item()
 
     assert twist_mean > 0.05
+
+def test_symplectic_gate_soft_mode_leaks_when_gate_off():
+    dim = 4
+    seq_len = 8
+
+    gate_hard = SymplecticGating(dim, gated = True, diag = True, gate_threshold = 0.0, gate_mode = "hard")
+    gate_soft = SymplecticGating(dim, gated = True, diag = True, gate_threshold = 0.0, gate_mode = "soft")
+
+    for gate in (gate_hard, gate_soft):
+        with torch.no_grad():
+            gate.gate_weight.zero_()
+            gate.gate_bias.fill_(-10.0)
+            gate.mag_weight.fill_(1.0)
+            gate.mag_bias.zero_()
+
+    x = torch.randn(1, seq_len, dim)
+
+    hard_mean = gate_hard(x).mean().item()
+    soft_mean = gate_soft(x).mean().item()
+
+    assert hard_mean < 1e-6
+    assert soft_mean > hard_mean
+
+def test_symplectic_gate_topk_reduces_complexity():
+    dim = 4
+    seq_len = 16
+
+    gate_full = SymplecticGating(dim, gated = True, diag = True, gate_threshold = 0.0, top_k = None)
+    gate_topk = SymplecticGating(dim, gated = True, diag = True, gate_threshold = 0.0, top_k = 1)
+
+    for gate in (gate_full, gate_topk):
+        with torch.no_grad():
+            gate.gate_weight.zero_()
+            gate.gate_bias.fill_(10.0)
+            gate.mag_weight.fill_(1.0)
+            gate.mag_bias.zero_()
+            gate.to_twist_q.weight.copy_(torch.eye(dim))
+            rot = torch.zeros(dim, dim)
+            for i in range(dim):
+                rot[i, (i + 1) % dim] = 1.0
+            gate.to_twist_k.weight.copy_(rot)
+
+    twist = torch.zeros(1, seq_len, dim)
+    for i in range(seq_len):
+        twist[0, i, i % dim] = 1.0
+
+    full_mean = gate_full(twist).mean().item()
+    topk_mean = gate_topk(twist).mean().item()
+
+    assert topk_mean < full_mean

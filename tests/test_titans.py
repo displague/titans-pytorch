@@ -6,6 +6,7 @@ from torch import nn
 import pytest
 from titans_pytorch import NeuralMemory
 from titans_pytorch.mac_transformer import flex_attention, SegmentedAttention, MemoryAsContextTransformer
+from torch.utils.cpp_extension import is_ninja_available
 
 # functions
 
@@ -356,6 +357,8 @@ def test_flex(
 ):
     if not (torch.cuda.is_available() and exists(flex_attention)):
         pytest.skip()
+    if not torch._dynamo.is_dynamo_supported():
+        pytest.skip()
 
     attn = SegmentedAttention(
         dim = 16,
@@ -380,6 +383,8 @@ def test_assoc_scan(
     from titans_pytorch.neural_memory import AssocScan
 
     if use_accelerated and not torch.cuda.is_available():
+        pytest.skip()
+    if use_accelerated and not is_ninja_available():
         pytest.skip()
 
     scan = AssocScan(use_accelerated = use_accelerated)

@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Callable
 
 from math import ceil
+import sys
 from copy import deepcopy
 from functools import partial
 from collections import namedtuple
@@ -17,6 +18,9 @@ from torch.nn import Module, ModuleList, Linear
 # https://pytorch.org/blog/flexattention/
 
 flex_attention = None
+
+def torch_compile_supported():
+    return hasattr(torch, "compile") and sys.version_info < (3, 14)
 
 try:
     from torch.nn.attention.flex_attention import flex_attention, create_block_mask
@@ -45,7 +49,14 @@ def create_mac_block_mask(seq_len, window_size, persist_mem_len, sliding = False
 
         return is_persist_mem | (~is_persist_mem & causal_mask)
 
-    block_mask = create_block_mask(create_mac_mask, B = None, H = None, Q_LEN = seq_len, KV_LEN = seq_len + persist_mem_len, _compile = True)
+    block_mask = create_block_mask(
+        create_mac_mask,
+        B = None,
+        H = None,
+        Q_LEN = seq_len,
+        KV_LEN = seq_len + persist_mem_len,
+        _compile = torch_compile_supported()
+    )
     return block_mask
 
 # einstein notation related

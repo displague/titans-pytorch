@@ -1,48 +1,50 @@
-# titans-pytorch — AGENTS.md
+# titans-pytorch - AGENTS.md
 
 ## Purpose
-Portable directions for experimental work in this repo, so improvements remain optional, testable, and PR-friendly.
+Portable directions for experimental work in this repository so changes remain optional, testable, and PR-friendly.
 
 ## Core Principles
-- Prefer **reusable Python tests** over throw-away scripts or ad-hoc experiments.
-- Keep **all improvements toggle-able** (no change to default behavior).
-- **Avoid sprawling file changes**; keep experimental additions modular.
-- Document **research, theory, intent, and direction** whenever adding improvements.
-- PRs should be **opt-in enhancements**, not behavior changes.
+- Work is driven from `TODO.md` with timestamps.
+- Completed work moves from `TODO.md` to `IMPLEMENTED.md` with timestamps.
+- Prefer reusable Python tests and benchmarks over throw-away scripts.
+- Keep improvements toggleable so default behavior does not change.
+- Keep changes modular and avoid sprawling edits.
+- Document research context, theory, intent, and direction for non-trivial improvements.
+- Preserve temporary work with named git stashes instead of deleting it.
 
 ## Workflow Rules
-1. **Toggle First**
-   - New features must be behind explicit flags or constructor args.
-   - Defaults must preserve current behavior.
+1. Toggle First
+- New behavior must be behind explicit flags or constructor args.
+- Defaults must preserve existing behavior.
 
-2. **Test First**
-   - Any exploratory work should land as a test in `tests/` or a benchmark in `benchmarks/`.
-   - Keep tests deterministic when possible (fixed seeds, small sizes).
+2. Test First
+- Exploratory work should land as tests in `tests/` or benchmarks in `benchmarks/`.
+- Keep tests deterministic where possible (fixed seeds, small shapes).
 
-3. **Modular Additions**
-   - Prefer adding new modules or small extensions over altering large existing flows.
-   - Keep experimental logic near its related component (e.g., gating logic in `symplectic_gate.py`).
+3. Modular Additions
+- Prefer focused module-level changes rather than broad rewrites.
+- Keep experimental logic close to the owning component.
 
-4. **Preserve Throw-Away Work**
-   - If temporary experiments are needed and not converted to tests, **stash them in git** with an identifiable description instead of deleting.
-   - Prefer `git stash push -m "<short description>"` so work remains recoverable and portable across tools.
+4. Preserve Throw-Away Work
+- If temporary experiments are not yet reusable, stash them instead of deleting.
+- Use identifiable messages, for example:
+- `git stash push -m "experiment: symplectic adaptive-k probe"`
 
-5. **Documentation & Citation**
-   - When adding improvements, document:
-     - **Research & theory** motivating the change
-     - **Intent** (what hypothesis is being tested)
-     - **Direction** (how to interpret success/failure)
-   - Include citations to relevant papers or resources in docstrings or README notes.
+5. Documentation and Citation
+- For each enhancement, record:
+- Theory or paper context
+- Intent and hypothesis
+- Success and failure interpretation
+- Add references in docstrings, `README.md`, or `IMPLEMENTED.md`.
+
+6. Progress Tracking
+- `README.md`: user-facing usage and feature docs.
+- `TODO.md`: active and planned work with timestamps.
+- `IMPLEMENTED.md`: timestamped AI implementation history and decisions.
+- When an item is completed, update both files to reflect the move.
 
 ## Practical Guidance
-- **Tests over notebooks**: If you need a one-off experiment, write it as a small test or benchmark instead.
-- **Maintain backward compatibility**: No silent behavior changes.
-- **Scoping**: Keep changes focused; avoid editing unrelated files.
+- Backward compatibility is required unless a breaking change is explicitly requested.
+- Keep edits scoped to the task.
+- Use non-interactive git commands.
 
-## Suggested Locations
-- Tests: `tests/`
-- Benchmarks: `benchmarks/`
-- Documentation notes: `README.md` or module docstrings
-
-## Notes
-These instructions mirror experimental practices previously used in external tooling and are intended to keep work portable and reviewable.

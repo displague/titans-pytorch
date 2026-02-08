@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class SymplecticGating(nn.Module):
-    """
+    r"""
     Detects topological 'twists' (non-commutativity) in the input stream.
     
     This module implements a localized version of the **Moment Map** ($\mu$) from the 
@@ -20,6 +20,7 @@ class SymplecticGating(nn.Module):
     Optional gated SAE-style projection (toggle via `gated=True`) is inspired by:
     - "Towards Monosemanticity: Decomposing Language Models With Dictionary Learning" (Anthropic)
     - "Improving Dictionary Learning with Gated Sparse Autoencoders" (Anthropic)
+    Optional adaptive sparsity (`top_k` / `adaptive_topk_ratio`) is aligned with AdaptiveK-style routing.
 
     When `diag=True`, the gate and magnitude projections are constrained to diagonal
     (elementwise) scaling for a "diagonal tensor" proxy.
@@ -30,7 +31,10 @@ class SymplecticGating(nn.Module):
         dim,
         gated: bool = False,
         diag: bool = False,
-        gate_threshold: float = 0.0
+        gate_threshold: float = 0.0,
+        gate_mode: str = "hard",
+        top_k: int | None = None,
+        adaptive_topk_ratio: float | None = None
     ):
         super().__init__()
         # Projections to map input space to 'Twist Space' (Lie Algebra dual $\mathfrak{g}^*$ approximation)
@@ -39,6 +43,12 @@ class SymplecticGating(nn.Module):
         self.gated = gated
         self.diag = diag
         self.gate_threshold = gate_threshold
+        self.gate_mode = gate_mode
+        self.top_k = top_k
+        self.adaptive_topk_ratio = adaptive_topk_ratio
+
+        if self.top_k is not None and self.adaptive_topk_ratio is not None:
+            raise ValueError("Only one of top_k or adaptive_topk_ratio can be set.")
 
         if self.gated:
             if self.diag:
@@ -59,11 +69,30 @@ class SymplecticGating(nn.Module):
                 gate_pre = self.to_gate(x)
                 mag_pre = self.to_mag(x)
 
-            gate_hard = (gate_pre > self.gate_threshold).to(x.dtype)
-            gate_soft = torch.sigmoid(gate_pre)
-            gate = gate_hard + (gate_soft - gate_soft.detach())
+            if self.gate_mode not in ("hard", "soft"):
+                raise ValueError("gate_mode must be 'hard' or 'soft'")
+
+            if self.gate_mode == "soft":
+                gate = torch.sigmoid(gate_pre)
+            else:
+                gate_hard = (gate_pre > self.gate_threshold).to(x.dtype)
+                gate_soft = torch.sigmoid(gate_pre)
+                gate = gate_hard + (gate_soft - gate_soft.detach())
 
             mag = F.relu(mag_pre)
+            if self.top_k is not None or self.adaptive_topk_ratio is not None:
+                if self.top_k is not None:
+                    k = max(1, min(self.top_k, mag.shape[-1]))
+                else:
+                    strength = gate_pre.abs().mean().clamp(0.0, 1.0).item()
+                    k = max(1, min(int(mag.shape[-1] * self.adaptive_topk_ratio * strength), mag.shape[-1]))
+
+                topk = torch.topk(gate_pre, k = k, dim = -1).indices
+                mask = torch.zeros_like(gate_pre, dtype = torch.bool)
+                mask.scatter_(-1, topk, True)
+                gate = torch.where(mask, gate, torch.zeros_like(gate))
+                mag = torch.where(mask, mag, torch.zeros_like(mag))
+
             x = gate * mag
 
         q = self.to_twist_q(x)

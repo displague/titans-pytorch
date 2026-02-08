@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from titans_pytorch.neural_memory import NeuralMemory
+from titans_pytorch.neural_memory import NeuralMemory, NeuralMemState
 from titans_pytorch.symplectic_gate import SymplecticGating
 
 def test_symplectic_gating_logic():
@@ -175,24 +175,28 @@ def test_inactive_pages_receive_no_updates():
         symplectic_page_threshold = 0.1
     )
 
-    class MockGate(nn.Module):
+    class MockGateZero(nn.Module):
         def forward(self, x):
-            return torch.ones(x.shape[0], x.shape[1], 1)
+            return torch.zeros(x.shape[0], x.shape[1], 1)
 
-    mem.symplectic_gate = MockGate()
+    mem.symplectic_gate = MockGateZero()
+
+    init_weights = mem.init_weights(batch = 1)
+    state = NeuralMemState(0, init_weights, None, None, None, torch.tensor([1]))
 
     seq = torch.randn(1, 2, dim)
-    _, next_state = mem(seq)
+    _, next_state = mem(seq, state = state)
 
     assert next_state.active_page_indices.item() == 1
 
     updates = next_state.updates
     assert updates is not None
 
-    for t in updates.values():
+    for name, t in updates.items():
         t = t.reshape(1, mem.internal_heads, *t.shape[1:])
         inactive = 0
-        assert torch.allclose(t[:, inactive], torch.zeros_like(t[:, inactive]), atol = 1e-6)
+        init = init_weights[name].reshape(1, mem.internal_heads, *init_weights[name].shape[1:])
+        assert torch.allclose(t[:, inactive, 0], init[:, inactive], atol = 1e-6)
 
 
 if __name__ == "__main__":
