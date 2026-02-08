@@ -1,14 +1,15 @@
 # IMPLEMENTED
 
 ## Branch History (origin/main..feat/symplectic-gating)
-- [2025-12-20 18:48:48] `82b0c4d` Added symplectic gating for adaptive memory decay.
-- [2025-12-22 14:34:08] `d533554` Refactored symplectic gate scoring (`tanh`, max pooling behavior, learnable scale path).
-- [2025-12-22 14:34:27] `0dcef24` Added symplectic verification benchmarks.
-- [2025-12-23 07:45:18] `3905299` Fixed vmap dimensions and implemented manifold paging objective reduction.
-- [2025-12-30 17:49:47] `6797ba2` Integrated symplectic reduction with moment map and per-sample paging.
-- [2025-12-30 19:36:18] `40e75b0` Added DMD module and DMD-based neural memory gating.
-- [2026-02-08 15:15:45] `65b4ddf` Added gated symplectic options and synthetic spiral/helix benchmark extensions.
-- [2026-02-08 15:35:44] `01eebb9` Guarded `torch.compile` and ignored `uv.lock`.
+- [2025-12-20 18:48:48] `f0de542` Added symplectic gating for adaptive memory decay.
+- [2025-12-22 14:34:08] `7736ff7` Refactored symplectic gate scoring (`tanh`, max pooling behavior, learnable scale path).
+- [2025-12-22 14:34:27] `ed0d149` Added symplectic verification benchmarks.
+- [2025-12-23 07:45:18] `465cdd8` Fixed vmap dimensions and implemented manifold paging objective reduction.
+- [2025-12-30 17:49:47] `eae41a9` Integrated symplectic reduction with moment map and per-sample paging.
+- [2025-12-30 19:36:18] `2575ca4` Added DMD module and DMD-based neural memory gating.
+- [2026-02-08 15:15:45] `bf7839d` Added gated symplectic options and synthetic spiral/helix benchmark extensions.
+- [2026-02-08 15:35:44] `9b277c5` Guarded `torch.compile` and ignored `uv.lock`.
+- [2026-02-08 16:23:00] `bf58584` Added soft/top-k gating and tracked progress docs.
 
 ## AI Changes In Progress (Not Yet Committed Before Current Step)
 - [2026-02-08 16:00:46] Ran GPU benchmark `benchmarks/benchmark_symplectic.py` on CUDA:
@@ -29,4 +30,5 @@
 ## Decisions
 - [2026-02-08 16:04:33] Keep all new gating behavior opt-in by constructor toggles.
 - [2026-02-08 16:04:33] Keep Python 3.14 compatibility by guarding compile-dependent paths and tests.
+- [2026-02-08 16:27:44] Rebased `feat/symplectic-gating` onto `origin/main` and re-ran post-rebase validation.
 
