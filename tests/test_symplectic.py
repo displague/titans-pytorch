@@ -174,3 +174,62 @@ def test_symplectic_gate_topk_reduces_complexity():
     topk_mean = gate_topk(twist).mean().item()
 
     assert topk_mean < full_mean
+
+def test_symplectic_gate_phase_map_shape():
+    gate = SymplecticGating(8, phase_mix = 1.0, phase_pairs = 2)
+    x = torch.randn(2, 12, 8)
+
+    complexity, phase = gate(x, return_phase_map = True)
+
+    assert complexity.shape == (2, 12, 1)
+    assert phase.shape == (2, 12, 1)
+
+def test_symplectic_gate_phase_mode_prefers_spiral():
+    dim = 8
+    seq_len = 32
+    gate = SymplecticGating(dim, phase_mix = 1.0, phase_pairs = 2)
+
+    with torch.no_grad():
+        gate.to_phase.weight.zero_()
+        gate.to_phase.weight[0, 0] = 1.
+        gate.to_phase.weight[1, 1] = 1.
+        gate.to_phase.weight[2, 2] = 1.
+        gate.to_phase.weight[3, 3] = 1.
+
+    linear = torch.zeros(1, seq_len, dim)
+    linear[..., 0] = 1.0
+    linear[..., 2] = 1.0
+
+    t = torch.linspace(0, 2 * torch.pi, seq_len)
+    spiral = torch.zeros(1, seq_len, dim)
+    spiral[0, :, 0] = torch.cos(t)
+    spiral[0, :, 1] = torch.sin(t)
+    spiral[0, :, 2] = torch.cos(2 * t)
+    spiral[0, :, 3] = torch.sin(2 * t)
+
+    linear_mean = gate(linear).mean().item()
+    spiral_mean = gate(spiral).mean().item()
+
+    assert spiral_mean > linear_mean + 0.05
+
+def test_neural_memory_symplectic_gate_kwargs():
+    dim = 16
+    mem = NeuralMemory(
+        dim = dim,
+        chunk_size = 2,
+        use_symplectic_gating = True,
+        symplectic_gate_kwargs = dict(
+            gated = True,
+            diag = True,
+            gate_mode = "soft",
+            phase_mix = 0.5,
+            phase_pairs = 2
+        )
+    )
+
+    x = torch.randn(1, 16, dim)
+    retrieved, _ = mem(x)
+    loss = retrieved.sum()
+    loss.backward()
+
+    assert retrieved.shape == x.shape

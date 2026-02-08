@@ -21,6 +21,8 @@ class SymplecticGating(nn.Module):
     - "Towards Monosemanticity: Decomposing Language Models With Dictionary Learning" (Anthropic)
     - "Improving Dictionary Learning with Gated Sparse Autoencoders" (Anthropic)
     Optional adaptive sparsity (`top_k` / `adaptive_topk_ratio`) is aligned with AdaptiveK-style routing.
+    Optional phase-aware complexity (`phase_mix > 0`) captures periodic latent dynamics
+    using per-step angular change in paired latent channels (closed-loop / limit-cycle proxy).
 
     When `diag=True`, the gate and magnitude projections are constrained to diagonal
     (elementwise) scaling for a "diagonal tensor" proxy.
@@ -34,7 +36,9 @@ class SymplecticGating(nn.Module):
         gate_threshold: float = 0.0,
         gate_mode: str = "hard",
         top_k: int | None = None,
-        adaptive_topk_ratio: float | None = None
+        adaptive_topk_ratio: float | None = None,
+        phase_mix: float = 0.0,
+        phase_pairs: int | None = None
     ):
         super().__init__()
         # Projections to map input space to 'Twist Space' (Lie Algebra dual $\mathfrak{g}^*$ approximation)
@@ -46,9 +50,12 @@ class SymplecticGating(nn.Module):
         self.gate_mode = gate_mode
         self.top_k = top_k
         self.adaptive_topk_ratio = adaptive_topk_ratio
+        self.phase_mix = phase_mix
 
         if self.top_k is not None and self.adaptive_topk_ratio is not None:
             raise ValueError("Only one of top_k or adaptive_topk_ratio can be set.")
+        if not (0.0 <= self.phase_mix <= 1.0):
+            raise ValueError("phase_mix must be in [0, 1].")
 
         if self.gated:
             if self.diag:
@@ -60,7 +67,13 @@ class SymplecticGating(nn.Module):
                 self.to_gate = nn.Linear(dim, dim)
                 self.to_mag = nn.Linear(dim, dim)
 
-    def forward(self, x, return_moment_map = False):
+        self.phase_pairs = phase_pairs
+        if self.phase_mix > 0.0:
+            self.phase_pairs = phase_pairs if phase_pairs is not None else max(1, dim // 2)
+            self.to_phase = nn.Linear(dim, self.phase_pairs * 2, bias = False)
+            nn.init.normal_(self.to_phase.weight, std = 0.02)
+
+    def forward(self, x, return_moment_map = False, return_phase_map = False):
         if self.gated:
             if self.diag:
                 gate_pre = x * self.gate_weight + self.gate_bias
@@ -124,9 +137,34 @@ class SymplecticGating(nn.Module):
         # Pad to match sequence length (prepend 0 to match input length)
         complexity_score = F.pad(complexity_score, (0, 0, 1, 0), value=0.0)
 
+        phase_score = torch.zeros_like(complexity_score)
+        if self.phase_mix > 0.0:
+            phase = self.to_phase(x)
+            batch, seq_len, _ = phase.shape
+            phase = phase.view(batch, seq_len, self.phase_pairs, 2)
+            phase = F.normalize(phase, dim = -1)
+
+            phase_prev = phase[:, :-1]
+            phase_curr = phase[:, 1:]
+
+            cross = (phase_prev[..., 0] * phase_curr[..., 1]) - (phase_prev[..., 1] * phase_curr[..., 0])
+            dot = (phase_prev * phase_curr).sum(dim = -1).clamp(min = -1., max = 1.)
+
+            # |atan2(cross, dot)| / pi gives normalized angular step size in [0, 1].
+            phase_delta = torch.atan2(cross, dot).abs() / torch.pi
+            phase_score = phase_delta.mean(dim = -1, keepdim = True)
+            phase_score = F.pad(phase_score, (0, 0, 1, 0), value = 0.0)
+
+            complexity_score = (1. - self.phase_mix) * complexity_score + self.phase_mix * phase_score
+
         if return_moment_map:
              # Also pad the raw moment map
              momentum_map = F.pad(momentum_map, (0, 0, 1, 0), value=0.0)
+             if return_phase_map:
+                 return complexity_score, momentum_map, phase_score
              return complexity_score, momentum_map
+
+        if return_phase_map:
+            return complexity_score, phase_score
 
         return complexity_score

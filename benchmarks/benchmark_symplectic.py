@@ -1,5 +1,9 @@
 
+import argparse
+import json
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 import torch
 import torch.nn.functional as F
 from titans_pytorch import NeuralMemory
@@ -109,16 +113,27 @@ def benchmark_helix_drift_recall(name, model, device, seq_len=128, dim=128, step
     print(f"{name}: Helix+Drift Reconstruction Loss = {final_loss:.6f}")
     return final_loss
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-json", type = str, default = None, help = "Optional path to write benchmark metrics JSON.")
+    parser.add_argument("--tag", type = str, default = "manual", help = "Run tag for regression tracking.")
+    parser.add_argument("--dim", type = int, default = 128)
+    parser.add_argument("--seq-len", type = int, default = 128)
+    parser.add_argument("--batch-size", type = int, default = 4)
+    parser.add_argument("--chunk-size", type = int, default = 32)
+    return parser.parse_args()
+
 if __name__ == "__main__":
+    args = parse_args()
     print("Initializing Benchmark...")
     torch.manual_seed(0)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)
     
-    dim = 128
-    seq_len = 128
-    batch_size = 4
-    chunk_size = 32
+    dim = args.dim
+    seq_len = args.seq_len
+    batch_size = args.batch_size
+    chunk_size = args.chunk_size
     
     device = torch.device('cpu')
     if torch.cuda.is_available():
@@ -154,23 +169,43 @@ if __name__ == "__main__":
         use_symplectic_gating=True,
         num_pages=2
     ).to(device)
+
+    # Symplectic + Phase + Paging
+    phase_paged_mem = NeuralMemory(
+        dim = dim,
+        chunk_size = chunk_size,
+        use_symplectic_gating = True,
+        num_pages = 2,
+        symplectic_gate_kwargs = dict(
+            gated = True,
+            gate_mode = "soft",
+            phase_mix = 0.5,
+            phase_pairs = max(1, dim // 8)
+        )
+    ).to(device)
     
     print(f"\nConfiguration: Dim={dim}, Seq={seq_len}, Batch={batch_size}")
     print("-" * 40)
     
     t_base_fwd = benchmark_model("Baseline (Fwd)", baseline_mem, x)
     t_symp_fwd = benchmark_model("Symplectic (Fwd)", symplectic_mem, x)
+    t_phase_fwd = benchmark_model("Symplectic+Phase+Paging (Fwd)", phase_paged_mem, x)
     
     overhead_fwd = (t_symp_fwd - t_base_fwd) / t_base_fwd * 100
     print(f"Forward Pass Overhead: {overhead_fwd:.2f}%")
+    phase_overhead_fwd = (t_phase_fwd - t_base_fwd) / t_base_fwd * 100
+    print(f"Forward Pass Overhead (Phase+Paging): {phase_overhead_fwd:.2f}%")
     
     print("-" * 40)
     
     t_base_train = benchmark_training("Baseline (Train)", baseline_mem, x)
     t_symp_train = benchmark_training("Symplectic (Train)", symplectic_mem, x)
+    t_phase_train = benchmark_training("Symplectic+Phase+Paging (Train)", phase_paged_mem, x)
     
     overhead_train = (t_symp_train - t_base_train) / t_base_train * 100
     print(f"Training Step Overhead: {overhead_train:.2f}%")
+    phase_overhead_train = (t_phase_train - t_base_train) / t_base_train * 100
+    print(f"Training Step Overhead (Phase+Paging): {phase_overhead_train:.2f}%")
     
     print("-" * 40)
     
@@ -217,6 +252,7 @@ if __name__ == "__main__":
     loss_base_spiral = benchmark_spiral_recall("Baseline", baseline_mem, device, dim=dim, seq_len=seq_len)
     loss_symp_spiral = benchmark_spiral_recall("Symplectic", symplectic_mem, device, dim=dim, seq_len=seq_len)
     loss_paged_spiral = benchmark_spiral_recall("Symplectic+Paging", paged_mem, device, dim=dim, seq_len=seq_len)
+    loss_phase_spiral = benchmark_spiral_recall("Symplectic+Phase+Paging", phase_paged_mem, device, dim=dim, seq_len=seq_len)
 
     print("\nTangible Performance: Helix+Drift Reconstruction (Lower is Better)")
     print("-" * 40)
@@ -224,6 +260,7 @@ if __name__ == "__main__":
     loss_base_helix = benchmark_helix_drift_recall("Baseline", baseline_mem, device, dim=dim, seq_len=seq_len)
     loss_symp_helix = benchmark_helix_drift_recall("Symplectic", symplectic_mem, device, dim=dim, seq_len=seq_len)
     loss_paged_helix = benchmark_helix_drift_recall("Symplectic+Paging", paged_mem, device, dim=dim, seq_len=seq_len)
+    loss_phase_helix = benchmark_helix_drift_recall("Symplectic+Phase+Paging", phase_paged_mem, device, dim=dim, seq_len=seq_len)
 
 
     print("\nVerifying Complexity Scores (Sanity Check)...")
@@ -236,3 +273,54 @@ if __name__ == "__main__":
 
     if hasattr(paged_mem, "page_switch_events"):
         print(f"Page Switch Events: {paged_mem.page_switch_events.item()}")
+
+    metrics = dict(
+        timestamp_utc = datetime.now(timezone.utc).isoformat(),
+        tag = args.tag,
+        device = str(device),
+        config = dict(dim = dim, seq_len = seq_len, batch_size = batch_size, chunk_size = chunk_size),
+        timing = dict(
+            fwd_ms = dict(
+                baseline = t_base_fwd * 1000,
+                symplectic = t_symp_fwd * 1000,
+                symplectic_phase_paging = t_phase_fwd * 1000
+            ),
+            train_ms = dict(
+                baseline = t_base_train * 1000,
+                symplectic = t_symp_train * 1000,
+                symplectic_phase_paging = t_phase_train * 1000
+            ),
+            overhead_pct = dict(
+                fwd_symplectic = overhead_fwd,
+                fwd_symplectic_phase_paging = phase_overhead_fwd,
+                train_symplectic = overhead_train,
+                train_symplectic_phase_paging = phase_overhead_train
+            )
+        ),
+        reconstruction = dict(
+            baseline = loss_base,
+            symplectic = loss_symp,
+            improvement_pct = improvement
+        ),
+        spiral = dict(
+            baseline = loss_base_spiral,
+            symplectic = loss_symp_spiral,
+            symplectic_paging = loss_paged_spiral,
+            symplectic_phase_paging = loss_phase_spiral
+        ),
+        helix_drift = dict(
+            baseline = loss_base_helix,
+            symplectic = loss_symp_helix,
+            symplectic_paging = loss_paged_helix,
+            symplectic_phase_paging = loss_phase_helix
+        ),
+        diagnostics = dict(
+            page_switch_events = int(paged_mem.page_switch_events.item()) if hasattr(paged_mem, "page_switch_events") else None
+        )
+    )
+
+    if args.output_json:
+        out_path = Path(args.output_json)
+        out_path.parent.mkdir(parents = True, exist_ok = True)
+        out_path.write_text(json.dumps(metrics, indent = 2), encoding = "utf-8")
+        print(f"Saved metrics JSON: {out_path}")

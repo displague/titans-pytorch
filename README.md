@@ -147,6 +147,50 @@ loss.backward()
 sampled = transformer.sample(token_ids[:, :4], 512)
 ```
 
+## Experimental Symplectic Gate Options
+
+`NeuralMemory` now accepts optional `symplectic_gate_kwargs` when `use_symplectic_gating=True`.
+Defaults are unchanged, so baseline behavior is preserved unless you opt in.
+
+Example:
+
+```python
+mem = NeuralMemory(
+    dim = 64,
+    chunk_size = 32,
+    use_symplectic_gating = True,
+    num_pages = 2,
+    symplectic_gate_kwargs = dict(
+        gated = True,
+        diag = True,
+        gate_mode = "soft",    # "hard" or "soft"
+        top_k = 8,             # optional sparse routing
+        phase_mix = 0.5,       # blend in periodic phase complexity
+        phase_pairs = 4
+    )
+)
+```
+
+Key optional flags in `SymplecticGating`:
+
+- `gated`, `diag`: gated SAE-style projection and diagonal projection proxy.
+- `gate_mode`: hard straight-through gating or soft gating.
+- `top_k`, `adaptive_topk_ratio`: sparse routing controls.
+- `phase_mix`, `phase_pairs`: periodic latent phase-complexity signal.
+
+Related research context:
+
+- Anthropic dictionary-learning and gated sparse autoencoder work.
+- Periodic closed-loop latent dynamics (spiral/helix manifold framing).
+
+## Regression Tracking
+
+Use benchmark JSON output to track improvements/regressions over time:
+
+```bash
+python benchmarks/benchmark_symplectic.py --tag nightly --output-json benchmarks/results/symplectic_latest.json
+```
+
 ## Experiments
 
 ```bash

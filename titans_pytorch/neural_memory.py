@@ -294,6 +294,7 @@ class NeuralMemory(Module):
         gated_transition = False,
         mem_model_norm_add_residual = True, # by default, layernorm output and add residual as proposed in TTT paper,
         use_symplectic_gating = False, # New argument
+        symplectic_gate_kwargs: dict | None = None, # Optional kwargs forwarded to SymplecticGating
         use_dmd_gating = False, # New argument
         num_pages = 1, # New argument: Manifold Paging for Objective Reduction
         symplectic_page_threshold: float | None = None, # Optional override for page switch threshold
@@ -539,7 +540,8 @@ class NeuralMemory(Module):
         # Symplectic Gate Initialization
         self.use_symplectic_gating = use_symplectic_gating
         if use_symplectic_gating:
-            self.symplectic_gate = SymplecticGating(dim)
+            symplectic_gate_kwargs = default(symplectic_gate_kwargs, {})
+            self.symplectic_gate = SymplecticGating(dim, **symplectic_gate_kwargs)
             self.symplectic_complexity_scale = Parameter(torch.ones(1) * 0.5)
             
             # For Manifold Paging: Track the active page index
