@@ -198,6 +198,53 @@ def test_inactive_pages_receive_no_updates():
         init = init_weights[name].reshape(1, mem.internal_heads, *init_weights[name].shape[1:])
         assert torch.allclose(t[:, inactive, 0], init[:, inactive], atol = 1e-6)
 
+def test_paging_stress_state_carry_isolates_pages():
+    dim = 8
+    mem = NeuralMemory(
+        dim = dim,
+        chunk_size = 2,
+        num_pages = 3,
+        heads = 1,
+        momentum = False,
+        use_symplectic_gating = True,
+        symplectic_page_threshold = 0.5
+    )
+
+    class ScriptedGate(nn.Module):
+        def __init__(self, values):
+            super().__init__()
+            self.values = values
+            self.index = 0
+
+        def forward(self, x):
+            v = self.values[min(self.index, len(self.values) - 1)]
+            self.index += 1
+            return torch.full((x.shape[0], x.shape[1], 1), v, device = x.device)
+
+    # Page transitions from initial page 0:
+    # high -> 1, low -> 1, high -> 2, high -> 0, low -> 0
+    scripted = ScriptedGate([0.9, 0.0, 0.9, 0.9, 0.0])
+    mem.symplectic_gate = scripted
+
+    seq = torch.randn(1, 2, dim)
+    state = None
+    observed_pages = []
+    page1_snapshot = None
+
+    for step in range(5):
+        _, state = mem(seq, state = state)
+        page = state.active_page_indices.item()
+        observed_pages.append(page)
+
+        last_update, _ = state.states
+        if step == 1:
+            page1_snapshot = {name: t[1].detach().clone() for name, t in last_update.items()}
+        elif step > 1 and page != 1:
+            for name, t in last_update.items():
+                assert torch.allclose(t[1], page1_snapshot[name], atol = 1e-6), f"Page 1 drifted while inactive for {name}"
+
+    assert observed_pages == [1, 1, 2, 0, 0]
+
 
 if __name__ == "__main__":
     test_symplectic_gating_logic()

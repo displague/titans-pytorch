@@ -37,6 +37,7 @@ class SymplecticGating(nn.Module):
         gate_mode: str = "hard",
         top_k: int | None = None,
         adaptive_topk_ratio: float | None = None,
+        adaptive_topk_min_k: int = 1,
         phase_mix: float = 0.0,
         phase_pairs: int | None = None
     ):
@@ -50,10 +51,15 @@ class SymplecticGating(nn.Module):
         self.gate_mode = gate_mode
         self.top_k = top_k
         self.adaptive_topk_ratio = adaptive_topk_ratio
+        self.adaptive_topk_min_k = adaptive_topk_min_k
         self.phase_mix = phase_mix
 
         if self.top_k is not None and self.adaptive_topk_ratio is not None:
             raise ValueError("Only one of top_k or adaptive_topk_ratio can be set.")
+        if self.adaptive_topk_min_k < 1:
+            raise ValueError("adaptive_topk_min_k must be >= 1.")
+        if self.adaptive_topk_ratio is not None and not (0.0 < self.adaptive_topk_ratio <= 1.0):
+            raise ValueError("adaptive_topk_ratio must be in (0, 1].")
         if not (0.0 <= self.phase_mix <= 1.0):
             raise ValueError("phase_mix must be in [0, 1].")
 
@@ -73,7 +79,75 @@ class SymplecticGating(nn.Module):
             self.to_phase = nn.Linear(dim, self.phase_pairs * 2, bias = False)
             nn.init.normal_(self.to_phase.weight, std = 0.02)
 
-    def forward(self, x, return_moment_map = False, return_phase_map = False):
+    def compute_sparse_mask(
+        self,
+        gate_pre: torch.Tensor,
+        return_k: bool = False
+    ):
+        feature_dim = gate_pre.shape[-1]
+        min_k = min(self.adaptive_topk_min_k, feature_dim)
+
+        if self.top_k is None and self.adaptive_topk_ratio is None:
+            mask = torch.ones_like(gate_pre, dtype = torch.bool)
+            if return_k:
+                k = torch.full((*gate_pre.shape[:-1], 1), feature_dim, dtype = torch.long, device = gate_pre.device)
+                return mask, k
+            return mask
+
+        if self.top_k is not None:
+            k = torch.full(
+                (*gate_pre.shape[:-1], 1),
+                max(min_k, min(self.top_k, feature_dim)),
+                dtype = torch.long,
+                device = gate_pre.device
+            )
+        else:
+            # Per-token adaptive k based on activation strength, normalized with tanh to [0, 1).
+            token_strength = gate_pre.abs().mean(dim = -1, keepdim = True).tanh()
+            target = token_strength * (self.adaptive_topk_ratio * feature_dim)
+            k = torch.ceil(target).long().clamp(min = min_k, max = feature_dim)
+
+        rank_order = torch.argsort(gate_pre, dim = -1, descending = True)
+        ranks = torch.empty_like(rank_order)
+        arange = torch.arange(feature_dim, device = gate_pre.device).view(*([1] * (gate_pre.ndim - 1)), feature_dim)
+        ranks.scatter_(-1, rank_order, arange.expand_as(rank_order))
+
+        mask = ranks < k
+
+        if return_k:
+            return mask, k
+        return mask
+
+    def extract_manifold_state(
+        self,
+        x: torch.Tensor
+    ):
+        if self.phase_mix <= 0.0:
+            return None
+
+        phase = self.to_phase(x)
+        batch, seq_len, _ = phase.shape
+        phase = phase.view(batch, seq_len, self.phase_pairs, 2)
+
+        radius = phase.norm(dim = -1)
+        angle = torch.atan2(phase[..., 1], phase[..., 0])
+
+        return dict(
+            phase_radius = radius,
+            phase_angle = angle
+        )
+
+    def forward(
+        self,
+        x,
+        return_moment_map = False,
+        return_phase_map = False,
+        return_sparse_k = False,
+        return_manifold_state = False
+    ):
+        sparse_k = None
+        manifold_state = None
+
         if self.gated:
             if self.diag:
                 gate_pre = x * self.gate_weight + self.gate_bias
@@ -94,15 +168,7 @@ class SymplecticGating(nn.Module):
 
             mag = F.relu(mag_pre)
             if self.top_k is not None or self.adaptive_topk_ratio is not None:
-                if self.top_k is not None:
-                    k = max(1, min(self.top_k, mag.shape[-1]))
-                else:
-                    strength = gate_pre.abs().mean().clamp(0.0, 1.0).item()
-                    k = max(1, min(int(mag.shape[-1] * self.adaptive_topk_ratio * strength), mag.shape[-1]))
-
-                topk = torch.topk(gate_pre, k = k, dim = -1).indices
-                mask = torch.zeros_like(gate_pre, dtype = torch.bool)
-                mask.scatter_(-1, topk, True)
+                mask, sparse_k = self.compute_sparse_mask(gate_pre, return_k = True)
                 gate = torch.where(mask, gate, torch.zeros_like(gate))
                 mag = torch.where(mask, mag, torch.zeros_like(mag))
 
@@ -139,9 +205,9 @@ class SymplecticGating(nn.Module):
 
         phase_score = torch.zeros_like(complexity_score)
         if self.phase_mix > 0.0:
-            phase = self.to_phase(x)
-            batch, seq_len, _ = phase.shape
-            phase = phase.view(batch, seq_len, self.phase_pairs, 2)
+            phase_state = self.extract_manifold_state(x)
+            manifold_state = phase_state
+            phase = torch.stack((phase_state["phase_radius"] * torch.cos(phase_state["phase_angle"]), phase_state["phase_radius"] * torch.sin(phase_state["phase_angle"])), dim = -1)
             phase = F.normalize(phase, dim = -1)
 
             phase_prev = phase[:, :-1]
@@ -161,10 +227,33 @@ class SymplecticGating(nn.Module):
              # Also pad the raw moment map
              momentum_map = F.pad(momentum_map, (0, 0, 1, 0), value=0.0)
              if return_phase_map:
-                 return complexity_score, momentum_map, phase_score
-             return complexity_score, momentum_map
+                 output = [complexity_score, momentum_map, phase_score]
+                 if return_sparse_k:
+                     output.append(sparse_k)
+                 if return_manifold_state:
+                     output.append(manifold_state)
+                 return tuple(output)
+             output = [complexity_score, momentum_map]
+             if return_sparse_k:
+                 output.append(sparse_k)
+             if return_manifold_state:
+                 output.append(manifold_state)
+             return tuple(output)
 
         if return_phase_map:
-            return complexity_score, phase_score
+            output = [complexity_score, phase_score]
+            if return_sparse_k:
+                output.append(sparse_k)
+            if return_manifold_state:
+                output.append(manifold_state)
+            return tuple(output)
+
+        if return_sparse_k or return_manifold_state:
+            output = [complexity_score]
+            if return_sparse_k:
+                output.append(sparse_k)
+            if return_manifold_state:
+                output.append(manifold_state)
+            return tuple(output)
 
         return complexity_score

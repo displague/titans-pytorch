@@ -1,14 +1,13 @@
 # TODO
 
 ## Active
-- [2026-02-08 16:54:24] Evaluate per-sample adaptive top-k (varying `k` per batch item / token) behind a toggle, with unit tests.
-- [2026-02-08 16:54:24] Prototype manifold-state cache keys (`phase angle`, `radius`) for optional paging/cache lookup.
+- [2026-02-08 17:16:41] Add long-horizon drift benchmark (phase consistency and recovery after perturbation).
+- [2026-02-08 17:16:41] Prototype manifold-state keyed cache lookup policy in `NeuralMemory` state.
+- [2026-02-08 17:16:41] Add ablation script for gate variants (`hard`, `soft`, `top_k`, adaptive top-k, phase mix).
 
 ## Future Directions
-- [2026-02-08 16:54:24] Add DMD vs symplectic vs combined gating ablation benchmark table output.
-- [2026-02-08 16:54:24] Add paging stress tests that assert page isolation over multi-step state carry.
-- [2026-02-08 16:54:24] Add optional benchmark CSV output for regression tracking in CI.
-- [2026-02-08 16:54:24] Add long-horizon drift benchmark (phase-consistency and recovery after perturbation).
+- [2026-02-08 17:16:41] Add calibration sweep for `symplectic_page_threshold` to target switch-rate bands.
+- [2026-02-08 17:16:41] Add CI regression guard that diffs latest benchmark JSON against rolling baseline.
 
 ## Process Notes
 - Completed items move to `IMPLEMENTED.md` with timestamps and test evidence.

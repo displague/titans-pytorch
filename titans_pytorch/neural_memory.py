@@ -296,6 +296,7 @@ class NeuralMemory(Module):
         use_symplectic_gating = False, # New argument
         symplectic_gate_kwargs: dict | None = None, # Optional kwargs forwarded to SymplecticGating
         use_dmd_gating = False, # New argument
+        combine_symplectic_and_dmd = False, # Optional: blend both gating signals when both are enabled
         num_pages = 1, # New argument: Manifold Paging for Objective Reduction
         symplectic_page_threshold: float | None = None, # Optional override for page switch threshold
         default_model_kwargs: dict = dict(
@@ -555,6 +556,7 @@ class NeuralMemory(Module):
             self.symplectic_page_threshold = default(symplectic_page_threshold, 0.5)
 
         self.use_dmd_gating = use_dmd_gating
+        self.combine_symplectic_and_dmd = combine_symplectic_and_dmd
         if use_dmd_gating:
              # Rank=None implies full rank SVD
              self.dmd = DynamicModeDecomposition(rank=None)
@@ -694,10 +696,23 @@ class NeuralMemory(Module):
 
         if self.use_symplectic_gating or self.use_dmd_gating:
              # Calculate Complexity
-             if self.use_symplectic_gating:
+             use_combined = self.combine_symplectic_and_dmd and self.use_symplectic_gating and self.use_dmd_gating
+
+             if use_combined:
+                 # Symplectic signal: local geometric twist.
+                 symplectic_complexity = self.symplectic_gate(seq)
+                 # DMD signal: global linear-dynamics reconstruction error.
+                 dmd_error = self.dmd(seq)
+                 dmd_complexity = torch.tanh(dmd_error).view(-1, 1, 1).expand(-1, seq.shape[1], 1)
+
+                 complexity = 0.5 * symplectic_complexity + 0.5 * dmd_complexity
+                 scale_param = 0.5 * (self.symplectic_complexity_scale + self.dmd_complexity_scale)
+
+             elif self.use_symplectic_gating:
                  # (B, Seq, 1)
                  complexity = self.symplectic_gate(seq)
                  scale_param = self.symplectic_complexity_scale
+
              elif self.use_dmd_gating:
                  # (B,) -> Broadcast to (B, Seq, 1)
                  # DMD gives global error for the window. We normalize it.

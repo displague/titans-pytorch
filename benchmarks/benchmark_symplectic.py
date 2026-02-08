@@ -1,5 +1,6 @@
 
 import argparse
+import csv
 import json
 import time
 from datetime import datetime, timezone
@@ -116,12 +117,23 @@ def benchmark_helix_drift_recall(name, model, device, seq_len=128, dim=128, step
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-json", type = str, default = None, help = "Optional path to write benchmark metrics JSON.")
+    parser.add_argument("--output-csv", type = str, default = None, help = "Optional path to append benchmark metrics as one CSV row.")
     parser.add_argument("--tag", type = str, default = "manual", help = "Run tag for regression tracking.")
     parser.add_argument("--dim", type = int, default = 128)
     parser.add_argument("--seq-len", type = int, default = 128)
     parser.add_argument("--batch-size", type = int, default = 4)
     parser.add_argument("--chunk-size", type = int, default = 32)
     return parser.parse_args()
+
+def flatten_dict(d, prefix = ""):
+    flat = {}
+    for key, value in d.items():
+        key_name = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, dict):
+            flat.update(flatten_dict(value, key_name))
+        else:
+            flat[key_name] = value
+    return flat
 
 if __name__ == "__main__":
     args = parse_args()
@@ -170,6 +182,30 @@ if __name__ == "__main__":
         num_pages=2
     ).to(device)
 
+    # DMD + Paging
+    dmd_paged_mem = NeuralMemory(
+        dim = dim,
+        chunk_size = chunk_size,
+        use_dmd_gating = True,
+        num_pages = 2
+    ).to(device)
+
+    # Symplectic + DMD + Paging (combined complexity)
+    combined_paged_mem = NeuralMemory(
+        dim = dim,
+        chunk_size = chunk_size,
+        use_symplectic_gating = True,
+        use_dmd_gating = True,
+        combine_symplectic_and_dmd = True,
+        num_pages = 2,
+        symplectic_gate_kwargs = dict(
+            gated = True,
+            gate_mode = "soft",
+            phase_mix = 0.25,
+            phase_pairs = max(1, dim // 8)
+        )
+    ).to(device)
+
     # Symplectic + Phase + Paging
     phase_paged_mem = NeuralMemory(
         dim = dim,
@@ -189,23 +225,35 @@ if __name__ == "__main__":
     
     t_base_fwd = benchmark_model("Baseline (Fwd)", baseline_mem, x)
     t_symp_fwd = benchmark_model("Symplectic (Fwd)", symplectic_mem, x)
+    t_dmd_fwd = benchmark_model("DMD+Paging (Fwd)", dmd_paged_mem, x)
+    t_combined_fwd = benchmark_model("Symplectic+DMD+Paging (Fwd)", combined_paged_mem, x)
     t_phase_fwd = benchmark_model("Symplectic+Phase+Paging (Fwd)", phase_paged_mem, x)
     
     overhead_fwd = (t_symp_fwd - t_base_fwd) / t_base_fwd * 100
     print(f"Forward Pass Overhead: {overhead_fwd:.2f}%")
     phase_overhead_fwd = (t_phase_fwd - t_base_fwd) / t_base_fwd * 100
     print(f"Forward Pass Overhead (Phase+Paging): {phase_overhead_fwd:.2f}%")
+    dmd_overhead_fwd = (t_dmd_fwd - t_base_fwd) / t_base_fwd * 100
+    print(f"Forward Pass Overhead (DMD+Paging): {dmd_overhead_fwd:.2f}%")
+    combined_overhead_fwd = (t_combined_fwd - t_base_fwd) / t_base_fwd * 100
+    print(f"Forward Pass Overhead (Symplectic+DMD+Paging): {combined_overhead_fwd:.2f}%")
     
     print("-" * 40)
     
     t_base_train = benchmark_training("Baseline (Train)", baseline_mem, x)
     t_symp_train = benchmark_training("Symplectic (Train)", symplectic_mem, x)
+    t_dmd_train = benchmark_training("DMD+Paging (Train)", dmd_paged_mem, x)
+    t_combined_train = benchmark_training("Symplectic+DMD+Paging (Train)", combined_paged_mem, x)
     t_phase_train = benchmark_training("Symplectic+Phase+Paging (Train)", phase_paged_mem, x)
     
     overhead_train = (t_symp_train - t_base_train) / t_base_train * 100
     print(f"Training Step Overhead: {overhead_train:.2f}%")
     phase_overhead_train = (t_phase_train - t_base_train) / t_base_train * 100
     print(f"Training Step Overhead (Phase+Paging): {phase_overhead_train:.2f}%")
+    dmd_overhead_train = (t_dmd_train - t_base_train) / t_base_train * 100
+    print(f"Training Step Overhead (DMD+Paging): {dmd_overhead_train:.2f}%")
+    combined_overhead_train = (t_combined_train - t_base_train) / t_base_train * 100
+    print(f"Training Step Overhead (Symplectic+DMD+Paging): {combined_overhead_train:.2f}%")
     
     print("-" * 40)
     
@@ -252,6 +300,8 @@ if __name__ == "__main__":
     loss_base_spiral = benchmark_spiral_recall("Baseline", baseline_mem, device, dim=dim, seq_len=seq_len)
     loss_symp_spiral = benchmark_spiral_recall("Symplectic", symplectic_mem, device, dim=dim, seq_len=seq_len)
     loss_paged_spiral = benchmark_spiral_recall("Symplectic+Paging", paged_mem, device, dim=dim, seq_len=seq_len)
+    loss_dmd_spiral = benchmark_spiral_recall("DMD+Paging", dmd_paged_mem, device, dim=dim, seq_len=seq_len)
+    loss_combined_spiral = benchmark_spiral_recall("Symplectic+DMD+Paging", combined_paged_mem, device, dim=dim, seq_len=seq_len)
     loss_phase_spiral = benchmark_spiral_recall("Symplectic+Phase+Paging", phase_paged_mem, device, dim=dim, seq_len=seq_len)
 
     print("\nTangible Performance: Helix+Drift Reconstruction (Lower is Better)")
@@ -260,7 +310,20 @@ if __name__ == "__main__":
     loss_base_helix = benchmark_helix_drift_recall("Baseline", baseline_mem, device, dim=dim, seq_len=seq_len)
     loss_symp_helix = benchmark_helix_drift_recall("Symplectic", symplectic_mem, device, dim=dim, seq_len=seq_len)
     loss_paged_helix = benchmark_helix_drift_recall("Symplectic+Paging", paged_mem, device, dim=dim, seq_len=seq_len)
+    loss_dmd_helix = benchmark_helix_drift_recall("DMD+Paging", dmd_paged_mem, device, dim=dim, seq_len=seq_len)
+    loss_combined_helix = benchmark_helix_drift_recall("Symplectic+DMD+Paging", combined_paged_mem, device, dim=dim, seq_len=seq_len)
     loss_phase_helix = benchmark_helix_drift_recall("Symplectic+Phase+Paging", phase_paged_mem, device, dim=dim, seq_len=seq_len)
+
+    print("\nAblation Summary (Lower is Better for losses)")
+    print("-" * 64)
+    print(f"{'Variant':32s} | {'Spiral':>10s} | {'Helix+Drift':>12s}")
+    print("-" * 64)
+    print(f"{'Baseline':32s} | {loss_base_spiral:10.6f} | {loss_base_helix:12.6f}")
+    print(f"{'Symplectic':32s} | {loss_symp_spiral:10.6f} | {loss_symp_helix:12.6f}")
+    print(f"{'Symplectic+Paging':32s} | {loss_paged_spiral:10.6f} | {loss_paged_helix:12.6f}")
+    print(f"{'DMD+Paging':32s} | {loss_dmd_spiral:10.6f} | {loss_dmd_helix:12.6f}")
+    print(f"{'Symplectic+DMD+Paging':32s} | {loss_combined_spiral:10.6f} | {loss_combined_helix:12.6f}")
+    print(f"{'Symplectic+Phase+Paging':32s} | {loss_phase_spiral:10.6f} | {loss_phase_helix:12.6f}")
 
 
     print("\nVerifying Complexity Scores (Sanity Check)...")
@@ -283,17 +346,25 @@ if __name__ == "__main__":
             fwd_ms = dict(
                 baseline = t_base_fwd * 1000,
                 symplectic = t_symp_fwd * 1000,
+                dmd_paging = t_dmd_fwd * 1000,
+                symplectic_dmd_paging = t_combined_fwd * 1000,
                 symplectic_phase_paging = t_phase_fwd * 1000
             ),
             train_ms = dict(
                 baseline = t_base_train * 1000,
                 symplectic = t_symp_train * 1000,
+                dmd_paging = t_dmd_train * 1000,
+                symplectic_dmd_paging = t_combined_train * 1000,
                 symplectic_phase_paging = t_phase_train * 1000
             ),
             overhead_pct = dict(
                 fwd_symplectic = overhead_fwd,
+                fwd_dmd_paging = dmd_overhead_fwd,
+                fwd_symplectic_dmd_paging = combined_overhead_fwd,
                 fwd_symplectic_phase_paging = phase_overhead_fwd,
                 train_symplectic = overhead_train,
+                train_dmd_paging = dmd_overhead_train,
+                train_symplectic_dmd_paging = combined_overhead_train,
                 train_symplectic_phase_paging = phase_overhead_train
             )
         ),
@@ -306,12 +377,16 @@ if __name__ == "__main__":
             baseline = loss_base_spiral,
             symplectic = loss_symp_spiral,
             symplectic_paging = loss_paged_spiral,
+            dmd_paging = loss_dmd_spiral,
+            symplectic_dmd_paging = loss_combined_spiral,
             symplectic_phase_paging = loss_phase_spiral
         ),
         helix_drift = dict(
             baseline = loss_base_helix,
             symplectic = loss_symp_helix,
             symplectic_paging = loss_paged_helix,
+            dmd_paging = loss_dmd_helix,
+            symplectic_dmd_paging = loss_combined_helix,
             symplectic_phase_paging = loss_phase_helix
         ),
         diagnostics = dict(
@@ -324,3 +399,16 @@ if __name__ == "__main__":
         out_path.parent.mkdir(parents = True, exist_ok = True)
         out_path.write_text(json.dumps(metrics, indent = 2), encoding = "utf-8")
         print(f"Saved metrics JSON: {out_path}")
+
+    if args.output_csv:
+        csv_path = Path(args.output_csv)
+        csv_path.parent.mkdir(parents = True, exist_ok = True)
+        row = flatten_dict(metrics)
+        fieldnames = sorted(row.keys())
+        write_header = not csv_path.exists()
+        with csv_path.open("a", newline = "", encoding = "utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames = fieldnames)
+            if write_header:
+                writer.writeheader()
+            writer.writerow(row)
+        print(f"Appended metrics CSV row: {csv_path}")

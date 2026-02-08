@@ -233,3 +233,61 @@ def test_neural_memory_symplectic_gate_kwargs():
     loss.backward()
 
     assert retrieved.shape == x.shape
+
+def test_symplectic_gate_adaptive_topk_varies_per_token():
+    dim = 8
+    gate = SymplecticGating(
+        dim,
+        gated = True,
+        diag = True,
+        adaptive_topk_ratio = 0.75,
+        adaptive_topk_min_k = 1
+    )
+
+    with torch.no_grad():
+        gate.gate_weight.fill_(1.0)
+        gate.gate_bias.zero_()
+
+    gate_pre = torch.zeros(1, 4, dim)
+    gate_pre[0, 0, 0] = 0.05
+    gate_pre[0, 1, :2] = 1.0
+    gate_pre[0, 2, :4] = 2.0
+    gate_pre[0, 3, :] = 4.0
+
+    _, sparse_k = gate.compute_sparse_mask(gate_pre, return_k = True)
+
+    assert sparse_k.shape == (1, 4, 1)
+    assert sparse_k[0, 0, 0] <= sparse_k[0, 1, 0] <= sparse_k[0, 2, 0] <= sparse_k[0, 3, 0]
+
+def test_symplectic_gate_extract_manifold_state_shapes():
+    gate = SymplecticGating(16, phase_mix = 0.5, phase_pairs = 3)
+    x = torch.randn(2, 10, 16)
+
+    state = gate.extract_manifold_state(x)
+
+    assert state is not None
+    assert state["phase_radius"].shape == (2, 10, 3)
+    assert state["phase_angle"].shape == (2, 10, 3)
+
+def test_neural_memory_combined_symplectic_dmd():
+    dim = 16
+    mem = NeuralMemory(
+        dim = dim,
+        chunk_size = 2,
+        use_symplectic_gating = True,
+        use_dmd_gating = True,
+        combine_symplectic_and_dmd = True,
+        symplectic_gate_kwargs = dict(
+            gated = True,
+            gate_mode = "soft",
+            phase_mix = 0.5,
+            phase_pairs = 2
+        )
+    )
+
+    x = torch.randn(1, 16, dim)
+    retrieved, _ = mem(x)
+    loss = retrieved.sum()
+    loss.backward()
+
+    assert retrieved.shape == x.shape
