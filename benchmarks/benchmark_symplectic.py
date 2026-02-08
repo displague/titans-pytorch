@@ -114,6 +114,96 @@ def benchmark_helix_drift_recall(name, model, device, seq_len=128, dim=128, step
     print(f"{name}: Helix+Drift Reconstruction Loss = {final_loss:.6f}")
     return final_loss
 
+def benchmark_long_horizon_recovery(
+    name,
+    model,
+    device,
+    seq_len = 512,
+    dim = 128,
+    warmup_steps = 30,
+    perturb_steps = 20,
+    recovery_steps = 20
+):
+    model.train()
+    optimizer = torch.optim.Adam(model.parameters(), lr = 1e-3)
+
+    t = torch.linspace(0, 12 * 3.14159, seq_len, device = device)
+    x_clean = torch.zeros(4, seq_len, dim, device = device)
+    x_clean[:, :, 0] = torch.cos(t)
+    x_clean[:, :, 1] = torch.sin(t)
+    if dim > 2:
+        x_clean[:, :, 2] = t / t.max()
+    if dim > 3:
+        x_clean[:, :, 3:] = 0.05 * torch.randn(4, seq_len, dim - 3, device = device)
+
+    x_perturb = x_clean.clone()
+    start = seq_len // 3
+    end = (2 * seq_len) // 3
+    phase_jump = 0.8
+    t_mid = t[start:end] + phase_jump
+    x_perturb[:, start:end, 0] = 1.2 * torch.cos(t_mid)
+    x_perturb[:, start:end, 1] = 1.2 * torch.sin(t_mid)
+    if dim > 2:
+        x_perturb[:, start:end, 2] = (t_mid / t.max()).clamp(max = 1.0)
+
+    for _ in range(warmup_steps):
+        optimizer.zero_grad()
+        retrieved, _ = model(x_clean)
+        loss = F.mse_loss(retrieved, x_clean)
+        loss.backward()
+        optimizer.step()
+
+    with torch.no_grad():
+        retrieved_clean, _ = model(x_clean)
+        clean_mse_pre = F.mse_loss(retrieved_clean, x_clean).item()
+
+        clean_angle = torch.atan2(x_clean[:, :, 1], x_clean[:, :, 0])
+        pred_angle = torch.atan2(retrieved_clean[:, :, 1], retrieved_clean[:, :, 0])
+        wrapped = torch.atan2(torch.sin(pred_angle - clean_angle), torch.cos(pred_angle - clean_angle))
+        phase_err_pre = wrapped.abs().mean().item()
+
+    for _ in range(perturb_steps):
+        optimizer.zero_grad()
+        retrieved, _ = model(x_perturb)
+        loss = F.mse_loss(retrieved, x_perturb)
+        loss.backward()
+        optimizer.step()
+
+    with torch.no_grad():
+        retrieved_perturb, _ = model(x_perturb)
+        perturb_mse = F.mse_loss(retrieved_perturb, x_perturb).item()
+
+    for _ in range(recovery_steps):
+        optimizer.zero_grad()
+        retrieved, _ = model(x_clean)
+        loss = F.mse_loss(retrieved, x_clean)
+        loss.backward()
+        optimizer.step()
+
+    with torch.no_grad():
+        retrieved_clean_after, _ = model(x_clean)
+        clean_mse_post = F.mse_loss(retrieved_clean_after, x_clean).item()
+
+        pred_angle_post = torch.atan2(retrieved_clean_after[:, :, 1], retrieved_clean_after[:, :, 0])
+        wrapped_post = torch.atan2(torch.sin(pred_angle_post - clean_angle), torch.cos(pred_angle_post - clean_angle))
+        phase_err_post = wrapped_post.abs().mean().item()
+
+    metrics = dict(
+        clean_mse_pre = clean_mse_pre,
+        perturb_mse = perturb_mse,
+        clean_mse_post = clean_mse_post,
+        phase_err_pre = phase_err_pre,
+        phase_err_post = phase_err_post,
+        mse_recovery_gain = clean_mse_pre - clean_mse_post,
+        phase_recovery_gain = phase_err_pre - phase_err_post
+    )
+    print(
+        f"{name}: Long-Horizon Recovery "
+        f"(clean_pre={clean_mse_pre:.6f}, perturb={perturb_mse:.6f}, clean_post={clean_mse_post:.6f}, "
+        f"phase_pre={phase_err_pre:.6f}, phase_post={phase_err_post:.6f})"
+    )
+    return metrics
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-json", type = str, default = None, help = "Optional path to write benchmark metrics JSON.")
@@ -123,6 +213,10 @@ def parse_args():
     parser.add_argument("--seq-len", type = int, default = 128)
     parser.add_argument("--batch-size", type = int, default = 4)
     parser.add_argument("--chunk-size", type = int, default = 32)
+    parser.add_argument("--long-seq-len", type = int, default = 512)
+    parser.add_argument("--long-warmup-steps", type = int, default = 30)
+    parser.add_argument("--long-perturb-steps", type = int, default = 20)
+    parser.add_argument("--long-recovery-steps", type = int, default = 20)
     return parser.parse_args()
 
 def flatten_dict(d, prefix = ""):
@@ -325,6 +419,39 @@ if __name__ == "__main__":
     print(f"{'Symplectic+DMD+Paging':32s} | {loss_combined_spiral:10.6f} | {loss_combined_helix:12.6f}")
     print(f"{'Symplectic+Phase+Paging':32s} | {loss_phase_spiral:10.6f} | {loss_phase_helix:12.6f}")
 
+    print("\nTangible Performance: Long-Horizon Perturbation Recovery")
+    print("-" * 64)
+    long_base = benchmark_long_horizon_recovery(
+        "Baseline",
+        baseline_mem,
+        device,
+        seq_len = args.long_seq_len,
+        dim = dim,
+        warmup_steps = args.long_warmup_steps,
+        perturb_steps = args.long_perturb_steps,
+        recovery_steps = args.long_recovery_steps
+    )
+    long_symp = benchmark_long_horizon_recovery(
+        "Symplectic+Paging",
+        paged_mem,
+        device,
+        seq_len = args.long_seq_len,
+        dim = dim,
+        warmup_steps = args.long_warmup_steps,
+        perturb_steps = args.long_perturb_steps,
+        recovery_steps = args.long_recovery_steps
+    )
+    long_phase = benchmark_long_horizon_recovery(
+        "Symplectic+Phase+Paging",
+        phase_paged_mem,
+        device,
+        seq_len = args.long_seq_len,
+        dim = dim,
+        warmup_steps = args.long_warmup_steps,
+        perturb_steps = args.long_perturb_steps,
+        recovery_steps = args.long_recovery_steps
+    )
+
 
     print("\nVerifying Complexity Scores (Sanity Check)...")
     with torch.no_grad():
@@ -388,6 +515,11 @@ if __name__ == "__main__":
             dmd_paging = loss_dmd_helix,
             symplectic_dmd_paging = loss_combined_helix,
             symplectic_phase_paging = loss_phase_helix
+        ),
+        long_horizon_recovery = dict(
+            baseline = long_base,
+            symplectic_paging = long_symp,
+            symplectic_phase_paging = long_phase
         ),
         diagnostics = dict(
             page_switch_events = int(paged_mem.page_switch_events.item()) if hasattr(paged_mem, "page_switch_events") else None

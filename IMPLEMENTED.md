@@ -12,6 +12,24 @@
 - [2026-02-08 16:23:00] `bf58584` Added soft/top-k gating and tracked progress docs.
 
 ## AI Changes In Progress (Not Yet Committed Before Current Step)
+- [2026-02-08 17:23:12] Completed next TODO item: long-horizon perturbation/recovery benchmark.
+- Added `benchmark_long_horizon_recovery(...)` in `benchmarks/benchmark_symplectic.py`.
+- Metrics include `clean_mse_pre`, `perturb_mse`, `clean_mse_post`, `phase_err_pre`, `phase_err_post`, and recovery gains.
+- Added CLI knobs:
+- `--long-seq-len`
+- `--long-warmup-steps`
+- `--long-perturb-steps`
+- `--long-recovery-steps`
+- [2026-02-08 17:23:12] Benchmark run (`tag=rabbit_hole_v4`, CUDA):
+- Long-horizon recovery:
+- Baseline: `clean_pre=0.196972`, `perturb=0.110681`, `clean_post=0.064286`, `phase_pre=0.977166`, `phase_post=0.295278`.
+- Symplectic+Paging: `clean_pre=0.000990`, `perturb=0.000598`, `clean_post=0.000368`, `phase_pre=0.028807`, `phase_post=0.022963`.
+- Symplectic+Phase+Paging: `clean_pre=0.001042`, `perturb=0.000634`, `clean_post=0.000412`, `phase_pre=0.035863`, `phase_post=0.024978`.
+- JSON updated: `benchmarks/results/symplectic_latest.json`
+- CSV appended: `benchmarks/results/symplectic_history.csv`
+- [2026-02-08 17:23:12] Regression tests:
+- `tests/test_symplectic.py`: `14 passed`.
+- `tests/test_symplectic_reduction.py`: `4 passed`.
 - [2026-02-08 17:16:41] Added benchmark CSV tracking output:
 - `benchmarks/benchmark_symplectic.py` now supports `--output-csv`.
 - `--output-json` and `--output-csv` can be emitted in the same run.
