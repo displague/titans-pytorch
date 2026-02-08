@@ -54,6 +54,13 @@ Portable directions for experimental work in this repository so changes remain o
 - Neuroscience.
 - Social psychology.
 - Linear algebra.
+- Microbiology.
+- Genetics.
+- Chemistry.
+- Taste and odor detection.
+- Taxonomy science.
+- Information theory.
+- Economic theory.
 
 ## Cross-Field Integration Guidance
 - Map each external concept to one explicit model hypothesis.

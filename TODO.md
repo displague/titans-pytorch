@@ -19,6 +19,14 @@
 - Neuroscience: predictive coding, hippocampal replay, attractor consolidation.
 - Social psychology: context framing, priming persistence, group-level interference analogs.
 - Linear algebra: low-rank + sparse decompositions, orthogonality control, spectral conditioning.
+- [2026-02-08 17:58:10] Next next-next inspiration pool for cross-field experimental hypotheses:
+- Microbiology: colony dynamics, quorum-like signaling, and resilience under stress.
+- Genetics: regulatory circuits, expression gating, mutation/selection style search over gating policies.
+- Chemistry: reaction kinetics and equilibrium analogs for memory update vs decay balance.
+- Taste/odor detection: combinatorial receptor coding and sparse mixture separation.
+- Taxonomy science: hierarchical class structure and stable branch-specific specialization.
+- Information theory: bottleneck trade-offs, coding efficiency, and surprise-driven switching.
+- Economic theory: resource allocation, market equilibrium, and incentive-compatible routing.
 
 ## Process Notes
 - Completed items move to `IMPLEMENTED.md` with timestamps and test evidence.
