@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from titans_pytorch.neural_memory import NeuralMemory
 from titans_pytorch.symplectic_gate import SymplecticGating
@@ -161,6 +162,38 @@ def test_per_sample_paging():
     assert active_pages_2[1].item() == 1, "Sample 1 should stay on Page 1 (No new twist)"
 
     print("Per-Sample Paging Verified.")
+
+
+def test_inactive_pages_receive_no_updates():
+    dim = 4
+    mem = NeuralMemory(
+        dim = dim,
+        chunk_size = 2,
+        num_pages = 2,
+        heads = 1,
+        use_symplectic_gating = True,
+        symplectic_page_threshold = 0.1
+    )
+
+    class MockGate(nn.Module):
+        def forward(self, x):
+            return torch.ones(x.shape[0], x.shape[1], 1)
+
+    mem.symplectic_gate = MockGate()
+
+    seq = torch.randn(1, 2, dim)
+    _, next_state = mem(seq)
+
+    assert next_state.active_page_indices.item() == 1
+
+    updates = next_state.updates
+    assert updates is not None
+
+    for t in updates.values():
+        t = t.reshape(1, mem.internal_heads, *t.shape[1:])
+        inactive = 0
+        assert torch.allclose(t[:, inactive], torch.zeros_like(t[:, inactive]), atol = 1e-6)
+
 
 if __name__ == "__main__":
     test_symplectic_gating_logic()

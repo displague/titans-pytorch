@@ -15,7 +15,7 @@ def test_symplectic_gate_shapes():
     # Check output shape: (batch, seq, 1)
     assert complexity.shape == (batch, seq_len, 1)
     
-    # Check range (sigmoid output)
+    # Check range (tanh output)
     assert (complexity >= 0).all() and (complexity <= 1).all()
 
 def test_neural_memory_integration():
@@ -35,3 +35,92 @@ def test_neural_memory_integration():
     
     # If backward passed, graph is connected.
     assert True
+
+def test_symplectic_gate_constant_sequence_zero():
+    dim = 8
+    seq_len = 16
+
+    gate = SymplecticGating(dim)
+
+    with torch.no_grad():
+        gate.to_twist_q.weight.copy_(torch.eye(dim))
+        rot = torch.zeros(dim, dim)
+        for i in range(dim):
+            rot[i, (i + 1) % dim] = 1.0
+        gate.to_twist_k.weight.copy_(rot)
+
+    seq = torch.zeros(1, seq_len, dim)
+    seq[..., 0] = 1.0
+
+    complexity, moment_map = gate(seq, return_moment_map = True)
+
+    assert moment_map.abs().max().item() < 1e-6
+    assert complexity.abs().max().item() < 1e-6
+
+def test_symplectic_gate_twist_higher_than_linear():
+    dim = 4
+    seq_len = 16
+
+    gate = SymplecticGating(dim)
+
+    with torch.no_grad():
+        gate.to_twist_q.weight.copy_(torch.eye(dim))
+        rot = torch.zeros(dim, dim)
+        for i in range(dim):
+            rot[i, (i + 1) % dim] = 1.0
+        gate.to_twist_k.weight.copy_(rot)
+
+    linear = torch.zeros(1, seq_len, dim)
+    linear[..., 0] = 1.0
+
+    twist = torch.zeros(1, seq_len, dim)
+    for i in range(seq_len):
+        twist[0, i, i % dim] = 1.0
+
+    linear_mean = gate(linear).mean().item()
+    twist_mean = gate(twist).mean().item()
+
+    assert twist_mean > linear_mean + 0.05
+
+def test_symplectic_gate_gated_diag_zeroes_when_gate_off():
+    dim = 8
+    seq_len = 16
+
+    gate = SymplecticGating(dim, gated = True, diag = True, gate_threshold = 0.0)
+
+    with torch.no_grad():
+        gate.gate_weight.zero_()
+        gate.gate_bias.fill_(-10.0)
+        gate.mag_weight.fill_(1.0)
+        gate.mag_bias.zero_()
+
+    x = torch.randn(1, seq_len, dim)
+    complexity, moment_map = gate(x, return_moment_map = True)
+
+    assert moment_map.abs().max().item() < 1e-6
+    assert complexity.abs().max().item() < 1e-6
+
+def test_symplectic_gate_gated_diag_detects_twist():
+    dim = 4
+    seq_len = 16
+
+    gate = SymplecticGating(dim, gated = True, diag = True, gate_threshold = 0.0)
+
+    with torch.no_grad():
+        gate.gate_weight.zero_()
+        gate.gate_bias.fill_(10.0)
+        gate.mag_weight.fill_(1.0)
+        gate.mag_bias.zero_()
+        gate.to_twist_q.weight.copy_(torch.eye(dim))
+        rot = torch.zeros(dim, dim)
+        for i in range(dim):
+            rot[i, (i + 1) % dim] = 1.0
+        gate.to_twist_k.weight.copy_(rot)
+
+    twist = torch.zeros(1, seq_len, dim)
+    for i in range(seq_len):
+        twist[0, i, i % dim] = 1.0
+
+    twist_mean = gate(twist).mean().item()
+
+    assert twist_mean > 0.05

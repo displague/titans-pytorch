@@ -16,15 +16,56 @@ class SymplecticGating(nn.Module):
     High Moment Map Magnitude (|$\mu$| >> 0) indicates a "Twist" or topological feature 
     that breaks the symmetry of the rational flow, requiring "Objective Reduction" 
     (Manifold Paging) to resolve.
+
+    Optional gated SAE-style projection (toggle via `gated=True`) is inspired by:
+    - "Towards Monosemanticity: Decomposing Language Models With Dictionary Learning" (Anthropic)
+    - "Improving Dictionary Learning with Gated Sparse Autoencoders" (Anthropic)
+
+    When `diag=True`, the gate and magnitude projections are constrained to diagonal
+    (elementwise) scaling for a "diagonal tensor" proxy.
     """
 
-    def __init__(self, dim):
+    def __init__(
+        self,
+        dim,
+        gated: bool = False,
+        diag: bool = False,
+        gate_threshold: float = 0.0
+    ):
         super().__init__()
         # Projections to map input space to 'Twist Space' (Lie Algebra dual $\mathfrak{g}^*$ approximation)
         self.to_twist_q = nn.Linear(dim, dim, bias=False)
         self.to_twist_k = nn.Linear(dim, dim, bias=False)
+        self.gated = gated
+        self.diag = diag
+        self.gate_threshold = gate_threshold
+
+        if self.gated:
+            if self.diag:
+                self.gate_weight = nn.Parameter(torch.ones(dim))
+                self.gate_bias = nn.Parameter(torch.zeros(dim))
+                self.mag_weight = nn.Parameter(torch.ones(dim))
+                self.mag_bias = nn.Parameter(torch.zeros(dim))
+            else:
+                self.to_gate = nn.Linear(dim, dim)
+                self.to_mag = nn.Linear(dim, dim)
 
     def forward(self, x, return_moment_map = False):
+        if self.gated:
+            if self.diag:
+                gate_pre = x * self.gate_weight + self.gate_bias
+                mag_pre = x * self.mag_weight + self.mag_bias
+            else:
+                gate_pre = self.to_gate(x)
+                mag_pre = self.to_mag(x)
+
+            gate_hard = (gate_pre > self.gate_threshold).to(x.dtype)
+            gate_soft = torch.sigmoid(gate_pre)
+            gate = gate_hard + (gate_soft - gate_soft.detach())
+
+            mag = F.relu(mag_pre)
+            x = gate * mag
+
         q = self.to_twist_q(x)
         k = self.to_twist_k(x)
 

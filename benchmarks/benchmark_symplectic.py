@@ -1,20 +1,28 @@
 
-import torch
 import time
+import torch
+import torch.nn.functional as F
 from titans_pytorch import NeuralMemory
+
+
+def sync(device):
+    if device.type == "cuda":
+        torch.cuda.synchronize()
 
 def benchmark_model(name, model, x, steps=5):
     model.eval()
-    
+
     # Warmup
     for _ in range(5):
         _ = model(x)
-        
-    start_time = time.time()
+
+    sync(x.device)
+    start_time = time.perf_counter()
     for _ in range(steps):
         _ = model(x)
-    end_time = time.time()
-    
+    sync(x.device)
+    end_time = time.perf_counter()
+
     avg_time = (end_time - start_time) / steps
     print(f"{name}: Avg Forward Time = {avg_time*1000:.2f} ms")
     return avg_time
@@ -22,30 +30,90 @@ def benchmark_model(name, model, x, steps=5):
 def benchmark_training(name, model, x, steps=5):
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    
+
     # Warmup
     for _ in range(5):
         optimizer.zero_grad()
-        loss, _ = model(x)
-        loss = loss.sum()
+        retrieved, _ = model(x)
+        loss = F.mse_loss(retrieved, x)
         loss.backward()
         optimizer.step()
-        
-    start_time = time.time()
+
+    sync(x.device)
+    start_time = time.perf_counter()
     for _ in range(steps):
         optimizer.zero_grad()
-        loss, _ = model(x)
-        loss = loss.sum()
+        retrieved, _ = model(x)
+        loss = F.mse_loss(retrieved, x)
         loss.backward()
         optimizer.step()
-    end_time = time.time()
-    
+    sync(x.device)
+    end_time = time.perf_counter()
+
     avg_time = (end_time - start_time) / steps
     print(f"{name}: Avg Train Step Time = {avg_time*1000:.2f} ms")
     return avg_time
 
+def benchmark_spiral_recall(name, model, device, seq_len=128, dim=128, steps=50):
+    model.train()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    t = torch.linspace(0, 4 * 3.14159, seq_len, device=device)
+    x = torch.zeros(4, seq_len, dim, device=device)
+    x[:, :, 0] = torch.cos(t)
+    x[:, :, 1] = torch.sin(t)
+    if dim > 2:
+        x[:, :, 2] = t / t.max()
+    if dim > 3:
+        x[:, :, 3:] = 0.1 * torch.randn(4, seq_len, dim - 3, device=device)
+
+    losses = []
+    for _ in range(steps):
+        optimizer.zero_grad()
+        retrieved, _ = model(x)
+        loss = F.mse_loss(retrieved, x)
+        loss.backward()
+        optimizer.step()
+        losses.append(loss.item())
+
+    final_loss = sum(losses[-10:]) / 10
+    print(f"{name}: Spiral Reconstruction Loss = {final_loss:.6f}")
+    return final_loss
+
+def benchmark_helix_drift_recall(name, model, device, seq_len=128, dim=128, steps=50):
+    model.train()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    t = torch.linspace(0, 6 * 3.14159, seq_len, device=device)
+    x = torch.zeros(4, seq_len, dim, device=device)
+    x[:, :, 0] = torch.cos(t)
+    x[:, :, 1] = torch.sin(t)
+    if dim > 2:
+        x[:, :, 2] = t / t.max()
+    if dim > 3:
+        drift = torch.linspace(0, 1.0, seq_len, device=device)
+        x[:, :, 3] = drift
+    if dim > 4:
+        x[:, :, 4:] = 0.1 * torch.randn(4, seq_len, dim - 4, device=device)
+
+    losses = []
+    for _ in range(steps):
+        optimizer.zero_grad()
+        retrieved, _ = model(x)
+        loss = F.mse_loss(retrieved, x)
+        loss.backward()
+        optimizer.step()
+        losses.append(loss.item())
+
+    final_loss = sum(losses[-10:]) / 10
+    print(f"{name}: Helix+Drift Reconstruction Loss = {final_loss:.6f}")
+    return final_loss
+
 if __name__ == "__main__":
     print("Initializing Benchmark...")
+    torch.manual_seed(0)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(0)
     
     dim = 128
     seq_len = 128
@@ -77,6 +145,14 @@ if __name__ == "__main__":
         dim=dim,
         chunk_size=chunk_size,
         use_symplectic_gating=True
+    ).to(device)
+
+    # Symplectic + Paging
+    paged_mem = NeuralMemory(
+        dim=dim,
+        chunk_size=chunk_size,
+        use_symplectic_gating=True,
+        num_pages=2
     ).to(device)
     
     print(f"\nConfiguration: Dim={dim}, Seq={seq_len}, Batch={batch_size}")
@@ -135,6 +211,21 @@ if __name__ == "__main__":
     improvement = (loss_base - loss_symp) / loss_base * 100
     print(f"Reconstruction Improvement: {improvement:.2f}%")
 
+    print("\nTangible Performance: Spiral Reconstruction (Lower is Better)")
+    print("-" * 40)
+
+    loss_base_spiral = benchmark_spiral_recall("Baseline", baseline_mem, device, dim=dim, seq_len=seq_len)
+    loss_symp_spiral = benchmark_spiral_recall("Symplectic", symplectic_mem, device, dim=dim, seq_len=seq_len)
+    loss_paged_spiral = benchmark_spiral_recall("Symplectic+Paging", paged_mem, device, dim=dim, seq_len=seq_len)
+
+    print("\nTangible Performance: Helix+Drift Reconstruction (Lower is Better)")
+    print("-" * 40)
+
+    loss_base_helix = benchmark_helix_drift_recall("Baseline", baseline_mem, device, dim=dim, seq_len=seq_len)
+    loss_symp_helix = benchmark_helix_drift_recall("Symplectic", symplectic_mem, device, dim=dim, seq_len=seq_len)
+    loss_paged_helix = benchmark_helix_drift_recall("Symplectic+Paging", paged_mem, device, dim=dim, seq_len=seq_len)
+
+
     print("\nVerifying Complexity Scores (Sanity Check)...")
     with torch.no_grad():
         gate = symplectic_mem.symplectic_gate
@@ -142,3 +233,6 @@ if __name__ == "__main__":
         print(f"Mean Complexity Score: {complexity.mean().item():.4f}")
         print(f"Max Complexity Score:  {complexity.max().item():.4f}")
         print(f"Min Complexity Score:  {complexity.min().item():.4f}")
+
+    if hasattr(paged_mem, "page_switch_events"):
+        print(f"Page Switch Events: {paged_mem.page_switch_events.item()}")
