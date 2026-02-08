@@ -43,6 +43,12 @@
 - `0.50`: switch_rate `0.000`, mean loss roughly `0.029`.
 - `0.70`: switch_rate `0.000`, mean loss roughly `0.026`.
 
+- [2026-02-08 17:55:14] Added regression guard utility: `benchmarks/check_regression.py`.
+- Compares baseline vs latest benchmark JSON on selected timing/loss/recovery metrics with configurable tolerance gates.
+- Exits non-zero on regression so it can be used in CI.
+- Validation run:
+- `python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_latest.json --latest benchmarks/results/symplectic_latest.json` -> `passed`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.

@@ -203,6 +203,7 @@ Additional experiment runners:
 ```bash
 python benchmarks/benchmark_gate_variants.py --tag gate_variants --output-json benchmarks/results/gate_variants_latest.json
 python benchmarks/benchmark_threshold_sweep.py --tag threshold_sweep --output-json benchmarks/results/threshold_sweep_latest.json
+python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_baseline.json --latest benchmarks/results/symplectic_latest.json
 ```
 
 ## Experiments

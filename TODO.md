@@ -1,9 +1,9 @@
 # TODO
 
 ## Active
-- [2026-02-08 17:38:45] Add CI regression guard that diffs latest benchmark JSON against a rolling baseline.
 - [2026-02-08 17:38:45] Evaluate `manifold_state_keyed_paging` against threshold-step paging on long-horizon and interference tasks.
 - [2026-02-08 17:38:45] Convert threshold sweep output into documented recommended switch-rate bands.
+- [2026-02-08 17:55:14] Wire `benchmarks/check_regression.py` into CI with a checked-in rolling baseline artifact policy.
 
 ## Future Directions
 - [2026-02-08 17:23:12] Advanced next-next topic: Renormalization-Group Memory Ladder (multiscale coarse-graining + refinement).
