@@ -1,12 +1,11 @@
 # TODO
 
 ## Active
-- [2026-02-08 17:23:12] Prototype manifold-state keyed cache lookup policy in `NeuralMemory` state.
-- [2026-02-08 17:23:12] Add ablation script for gate variants (`hard`, `soft`, `top_k`, adaptive top-k, phase mix).
+- [2026-02-08 17:38:45] Add CI regression guard that diffs latest benchmark JSON against a rolling baseline.
+- [2026-02-08 17:38:45] Evaluate `manifold_state_keyed_paging` against threshold-step paging on long-horizon and interference tasks.
+- [2026-02-08 17:38:45] Convert threshold sweep output into documented recommended switch-rate bands.
 
 ## Future Directions
-- [2026-02-08 17:16:41] Add calibration sweep for `symplectic_page_threshold` to target switch-rate bands.
-- [2026-02-08 17:16:41] Add CI regression guard that diffs latest benchmark JSON against rolling baseline.
 - [2026-02-08 17:23:12] Advanced next-next topic: Renormalization-Group Memory Ladder (multiscale coarse-graining + refinement).
 - Parallels:
 - Cosmology: scale-dependent structure growth and horizon crossing.
@@ -16,6 +15,10 @@
 - Topology: persistent homology across filtration scales.
 - Language theory: hierarchy from local syntax to discourse-level constraints.
 - Fusion research: turbulence cascades and confinement across scales.
+- [2026-02-08 17:38:45] Expand cross-field inspiration set for new experimental hypotheses:
+- Neuroscience: predictive coding, hippocampal replay, attractor consolidation.
+- Social psychology: context framing, priming persistence, group-level interference analogs.
+- Linear algebra: low-rank + sparse decompositions, orthogonality control, spectral conditioning.
 
 ## Process Notes
 - Completed items move to `IMPLEMENTED.md` with timestamps and test evidence.

@@ -245,6 +245,44 @@ def test_paging_stress_state_carry_isolates_pages():
 
     assert observed_pages == [1, 1, 2, 0, 0]
 
+def test_manifold_state_keyed_paging_routes_by_angle_bucket():
+    dim = 8
+    num_pages = 3
+    mem = NeuralMemory(
+        dim = dim,
+        chunk_size = 2,
+        num_pages = num_pages,
+        heads = 1,
+        momentum = False,
+        use_symplectic_gating = True,
+        manifold_state_keyed_paging = True,
+        symplectic_page_threshold = 0.1
+    )
+
+    class MockGateWithState(nn.Module):
+        def forward(self, x, return_manifold_state = False):
+            batch, seq_len, _ = x.shape
+            complexity = torch.ones(batch, seq_len, 1, device = x.device) * 0.9
+            if not return_manifold_state:
+                return complexity
+
+            angles = torch.tensor(
+                [-0.9 * torch.pi, 0.0, 0.9 * torch.pi],
+                device = x.device,
+                dtype = x.dtype
+            )[:batch]
+            angles = angles.view(batch, 1, 1).expand(batch, seq_len, 1)
+            radius = torch.ones_like(angles)
+            manifold_state = dict(phase_angle = angles, phase_radius = radius)
+            return complexity, manifold_state
+
+    mem.symplectic_gate = MockGateWithState()
+
+    seq = torch.randn(3, 2, dim)
+    _, state = mem(seq)
+
+    assert state.active_page_indices.tolist() == [0, 1, 2]
+
 
 if __name__ == "__main__":
     test_symplectic_gating_logic()

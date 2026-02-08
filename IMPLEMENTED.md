@@ -1,107 +1,53 @@
 # IMPLEMENTED
 
 ## Branch History (origin/main..feat/symplectic-gating)
-- [2025-12-20 18:48:48] `f0de542` Added symplectic gating for adaptive memory decay.
-- [2025-12-22 14:34:08] `7736ff7` Refactored symplectic gate scoring (`tanh`, max pooling behavior, learnable scale path).
-- [2025-12-22 14:34:27] `ed0d149` Added symplectic verification benchmarks.
-- [2025-12-23 07:45:18] `465cdd8` Fixed vmap dimensions and implemented manifold paging objective reduction.
-- [2025-12-30 17:49:47] `eae41a9` Integrated symplectic reduction with moment map and per-sample paging.
-- [2025-12-30 19:36:18] `2575ca4` Added DMD module and DMD-based neural memory gating.
-- [2026-02-08 15:15:45] `bf7839d` Added gated symplectic options and synthetic spiral/helix benchmark extensions.
-- [2026-02-08 15:35:44] `9b277c5` Guarded `torch.compile` and ignored `uv.lock`.
-- [2026-02-08 16:23:00] `bf58584` Added soft/top-k gating and tracked progress docs.
+- [2025-12-20 18:48:48] `f0de542` `feat: Add Symplectic Gating mechanism for adaptive memory decay`
+- [2025-12-22 14:34:08] `7736ff7` `Refactor Symplectic Gate: Use Tanh, Max Pooling, and Learnable Scale`
+- [2025-12-22 14:34:27] `ed0d149` `Add Symplectic verification benchmarks`
+- [2025-12-23 07:45:18] `465cdd8` `Fix vmap dimensions, implement Manifold Paging for Objective Reduction`
+- [2025-12-30 17:49:47] `eae41a9` `feat: integrate symplectic reduction with moment map and per-sample paging`
+- [2025-12-30 19:36:18] `2575ca4` `feat: add Dynamic Mode Decomposition (DMD) module and DMD-based Neural Memory Gating`
+- [2026-02-08 15:15:45] `bf7839d` `Add gated symplectic options and synthetic benchmarks`
+- [2026-02-08 15:35:44] `9b277c5` `Guard torch.compile and ignore uv lockfile`
+- [2026-02-08 16:23:00] `bf58584` `Add soft/top-k gating and tracked progress docs`
+- [2026-02-08 16:28:43] `792d65d` `Refresh IMPLEMENTED history after rebase`
+- [2026-02-08 16:55:40] `dd8ef58` `Add phase-aware gating and benchmark regression tracking`
+- [2026-02-08 17:17:26] `5cd9b22` `Advance manifold gating, ablations, and regression tracking`
+- [2026-02-08 17:26:30] `8e6f4ac` `Add long-horizon recovery benchmark and next research topic`
 
-## AI Changes In Progress (Not Yet Committed Before Current Step)
-- [2026-02-08 17:23:12] Completed next TODO item: long-horizon perturbation/recovery benchmark.
-- Added `benchmark_long_horizon_recovery(...)` in `benchmarks/benchmark_symplectic.py`.
-- Metrics include `clean_mse_pre`, `perturb_mse`, `clean_mse_post`, `phase_err_pre`, `phase_err_post`, and recovery gains.
-- Added CLI knobs:
-- `--long-seq-len`
-- `--long-warmup-steps`
-- `--long-perturb-steps`
-- `--long-recovery-steps`
-- [2026-02-08 17:23:12] Benchmark run (`tag=rabbit_hole_v4`, CUDA):
-- Long-horizon recovery:
-- Baseline: `clean_pre=0.196972`, `perturb=0.110681`, `clean_post=0.064286`, `phase_pre=0.977166`, `phase_post=0.295278`.
-- Symplectic+Paging: `clean_pre=0.000990`, `perturb=0.000598`, `clean_post=0.000368`, `phase_pre=0.028807`, `phase_post=0.022963`.
-- Symplectic+Phase+Paging: `clean_pre=0.001042`, `perturb=0.000634`, `clean_post=0.000412`, `phase_pre=0.035863`, `phase_post=0.024978`.
-- JSON updated: `benchmarks/results/symplectic_latest.json`
-- CSV appended: `benchmarks/results/symplectic_history.csv`
-- [2026-02-08 17:23:12] Regression tests:
-- `tests/test_symplectic.py`: `14 passed`.
-- `tests/test_symplectic_reduction.py`: `4 passed`.
-- [2026-02-08 17:16:41] Added benchmark CSV tracking output:
-- `benchmarks/benchmark_symplectic.py` now supports `--output-csv`.
-- `--output-json` and `--output-csv` can be emitted in the same run.
-- [2026-02-08 17:16:41] Added paging stress test for multi-step state carry:
-- `tests/test_symplectic_reduction.py::test_paging_stress_state_carry_isolates_pages`.
-- [2026-02-08 17:16:41] Added README updates for combined symplectic+DMD usage example.
-- [2026-02-08 17:16:41] Benchmark run (`tag=rabbit_hole_v3`, CUDA):
-- JSON: `benchmarks/results/symplectic_latest.json`
-- CSV row appended: `benchmarks/results/symplectic_history.csv`
-- Forward overhead: symplectic `+8.88%`, dmd+paging `+855.89%`, symplectic+dmd+paging `+937.22%`, symplectic+phase+paging `+29.59%`.
-- Train overhead: symplectic `+3.17%`, dmd+paging `+496.44%`, symplectic+dmd+paging `+400.27%`, symplectic+phase+paging `+18.30%`.
-- [2026-02-08 17:16:41] Regression tests re-run:
-- `tests/test_symplectic.py`: `14 passed`.
-- `tests/test_symplectic_reduction.py`: `4 passed`.
-- `tests/test_titans.py`: `5193 passed`, `5 skipped`.
-- [2026-02-08 17:05:16] Added per-token adaptive sparse routing in `SymplecticGating`:
-- New arg: `adaptive_topk_min_k`.
-- `adaptive_topk_ratio` now computes token-wise `k` (no global `.item()` scalar).
-- Added `compute_sparse_mask` helper with optional `return_k`.
-- [2026-02-08 17:05:16] Added manifold-state key prototype in `SymplecticGating`:
-- New `extract_manifold_state` method returning `phase_angle` and `phase_radius`.
-- New optional forward outputs: `return_sparse_k` and `return_manifold_state`.
-- [2026-02-08 17:05:16] Added optional blended complexity in `NeuralMemory`:
-- New args: `combine_symplectic_and_dmd` and existing `symplectic_gate_kwargs` passthrough used together.
-- [2026-02-08 17:05:16] Extended benchmark ablation in `benchmarks/benchmark_symplectic.py`:
-- Added `DMD+Paging` and `Symplectic+DMD+Paging` variants.
-- Added printed ablation table for spiral and helix+drift losses.
-- [2026-02-08 17:05:16] Benchmark run (`tag=rabbit_hole_v2`, CUDA, `benchmarks/results/symplectic_latest.json`):
-- Forward ms: baseline `5.97`, symplectic `6.51`, dmd+paging `58.63`, symplectic+dmd+paging `69.95`, symplectic+phase+paging `8.09`.
-- Train ms: baseline `14.68`, symplectic `16.07`, dmd+paging `72.77`, symplectic+dmd+paging `76.99`, symplectic+phase+paging `17.55`.
-- Spiral loss: baseline `0.073190`, symplectic `0.073859`, symplectic+paging `0.003655`, dmd+paging `0.002709`, symplectic+dmd+paging `0.002613`, symplectic+phase+paging `0.004674`.
-- Helix+Drift loss: baseline `0.015566`, symplectic `0.014972`, symplectic+paging `0.002084`, dmd+paging `0.000474`, symplectic+dmd+paging `0.000451`, symplectic+phase+paging `0.000657`.
-- [2026-02-08 17:05:16] Tests:
-- `tests/test_symplectic.py`: `14 passed`.
-- `tests/test_symplectic_reduction.py`: `3 passed`.
-- `tests/test_titans.py`: `5193 passed`, `5 skipped`.
-- [2026-02-08 16:54:24] Added phase-aware complexity in `SymplecticGating`:
-- New opt-in args: `phase_mix`, `phase_pairs`.
-- Added optional `return_phase_map` output.
-- [2026-02-08 16:54:24] Added `symplectic_gate_kwargs` passthrough in `NeuralMemory` for configurable gate experiments without changing defaults.
-- [2026-02-08 16:54:24] Added tests:
-- `tests/test_symplectic.py`: `11 passed` (phase map shape, spiral preference, kwargs integration).
-- `tests/test_symplectic_reduction.py`: `3 passed`.
-- `tests/test_titans.py`: `5193 passed`, `5 skipped`.
-- [2026-02-08 16:54:24] Added benchmark regression tracking output:
-- `benchmarks/benchmark_symplectic.py` now supports `--output-json` and `--tag`.
-- Added `Symplectic+Phase+Paging` benchmark variant.
-- [2026-02-08 16:54:24] Benchmark run (`tag=phase_probe`, CUDA, `benchmarks/results/symplectic_latest.json`):
-- Forward ms: baseline `6.04`, symplectic `6.84`, symplectic+phase+paging `7.70`.
-- Train ms: baseline `13.46`, symplectic `14.82`, symplectic+phase+paging `19.77`.
-- Reconstruction loss: baseline `0.154579`, symplectic `0.137844` (`+10.83%` improvement).
-- Spiral loss: baseline `0.068237`, symplectic `0.068459`, symplectic+paging `0.003655`, symplectic+phase+paging `0.003359`.
-- Helix+Drift loss: baseline `0.017306`, symplectic `0.013395`, symplectic+paging `0.001002`, symplectic+phase+paging `0.000518`.
-- [2026-02-08 16:54:24] Added `README.md` section documenting new gate options and regression tracking command.
-- [2026-02-08 16:00:46] Ran GPU benchmark `benchmarks/benchmark_symplectic.py` on CUDA:
-- Forward overhead: `+6.82%` (`11.51 ms` vs `10.78 ms`)
-- Train overhead: `+27.12%` (`29.80 ms` vs `23.44 ms`)
-- Reconstruction loss improvement: `23.45%` (`0.125563` vs `0.164036`)
-- Spiral loss: Baseline `0.068931`, Symplectic `0.073620`, Symplectic+Paging `0.003655`
-- Helix+Drift loss: Baseline `0.015451`, Symplectic `0.014486`, Symplectic+Paging `0.000549`
-- [2026-02-08 16:04:33] Added `gate_mode="soft"` and sparse routing toggles (`top_k`, `adaptive_topk_ratio`) to `SymplecticGating`.
-- [2026-02-08 16:04:33] Added and updated tests:
-- `tests/test_symplectic.py`: `8 passed`
-- `tests/test_symplectic_reduction.py`: `3 passed`
-- `tests/test_titans.py`: `5193 passed`, `5 skipped`
-- [2026-02-08 16:04:33] Added compatibility skips in `tests/test_titans.py`:
-- Skip flex-attention tests when dynamo is unavailable.
-- Skip accelerated assoc-scan test when `ninja` is unavailable.
+## Uncommitted Work (Current Session)
+- [2026-02-08 17:40:33] Added manifold-state keyed paging prototype in `NeuralMemory`.
+- New constructor toggle: `manifold_state_keyed_paging=False` (opt-in, no default behavior change).
+- When enabled and manifold state is available, page routing uses circular mean phase angle to select a page bucket.
+- Added regression test: `tests/test_symplectic_reduction.py::test_manifold_state_keyed_paging_routes_by_angle_bucket`.
+
+- [2026-02-08 17:40:33] Added gate-variant ablation benchmark script: `benchmarks/benchmark_gate_variants.py`.
+- Variants: `symplectic_default`, `hard_diag`, `soft_diag`, `hard_topk8`, `adaptive_topk`, `phase_mix`.
+- Outputs: `benchmarks/results/gate_variants_latest.json`, `benchmarks/results/gate_variants_history.csv`.
+- Run tag `gate_variants_v2` (CUDA, steps=12):
+- `symplectic_default`: spiral `0.027641`, helix `0.026637`.
+- `hard_diag`: spiral `0.033863`, helix `0.026360`.
+- `soft_diag`: spiral `0.031234`, helix `0.026194`.
+- `hard_topk8`: spiral `0.025152`, helix `0.027509`, sparse_k `8.0`.
+- `adaptive_topk`: spiral `0.031652`, helix `0.025994`, sparse_k `7.46875`.
+- `phase_mix`: spiral `0.029299`, helix `0.026211`.
+
+- [2026-02-08 17:40:33] Added threshold calibration benchmark script: `benchmarks/benchmark_threshold_sweep.py`.
+- Sweeps `symplectic_page_threshold` and tracks loss plus switch-rate bands.
+- Outputs: `benchmarks/results/threshold_sweep_latest.json`, `benchmarks/results/threshold_sweep_history.csv`.
+- Run tag `threshold_sweep_v1` (CUDA, steps=12):
+- `0.05`: switch_rate `4.000`, mean loss roughly `0.027`.
+- `0.10`: switch_rate `4.000`, mean loss roughly `0.029`.
+- `0.20`: switch_rate `0.667`, mean loss roughly `0.032`.
+- `0.35`: switch_rate `0.000`, mean loss roughly `0.026`.
+- `0.50`: switch_rate `0.000`, mean loss roughly `0.029`.
+- `0.70`: switch_rate `0.000`, mean loss roughly `0.026`.
+
+## Validation
+- [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
+- [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
+- [2026-02-08 17:40:33] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
 
 ## Decisions
-- [2026-02-08 16:04:33] Keep all new gating behavior opt-in by constructor toggles.
-- [2026-02-08 16:04:33] Keep Python 3.14 compatibility by guarding compile-dependent paths and tests.
-- [2026-02-08 16:27:44] Rebased `feat/symplectic-gating` onto `origin/main` and re-ran post-rebase validation.
-- [2026-02-08 16:54:24] Keep benchmark regression snapshots as explicit JSON outputs (`--output-json`) rather than hard-coded committed artifacts.
-
+- [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.
+- [2026-02-08 17:40:33] Keep branch tracking explicit: `README.md` for usage, `TODO.md` for planned work, `IMPLEMENTED.md` for timestamped execution history and results.

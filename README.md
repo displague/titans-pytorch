@@ -180,6 +180,11 @@ Key optional flags in `SymplecticGating`:
 - `top_k`, `adaptive_topk_ratio`: sparse routing controls.
 - `phase_mix`, `phase_pairs`: periodic latent phase-complexity signal.
 
+Additional optional `NeuralMemory` toggles:
+
+- `combine_symplectic_and_dmd`: blend symplectic and DMD complexity signals.
+- `manifold_state_keyed_paging`: route page selection from manifold phase-angle keys instead of only incrementing page index on threshold crossings.
+
 Related research context:
 
 - Anthropic dictionary-learning and gated sparse autoencoder work.
@@ -191,6 +196,13 @@ Use benchmark JSON output to track improvements/regressions over time:
 
 ```bash
 python benchmarks/benchmark_symplectic.py --tag nightly --output-json benchmarks/results/symplectic_latest.json
+```
+
+Additional experiment runners:
+
+```bash
+python benchmarks/benchmark_gate_variants.py --tag gate_variants --output-json benchmarks/results/gate_variants_latest.json
+python benchmarks/benchmark_threshold_sweep.py --tag threshold_sweep --output-json benchmarks/results/threshold_sweep_latest.json
 ```
 
 ## Experiments

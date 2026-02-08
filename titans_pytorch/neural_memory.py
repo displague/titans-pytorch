@@ -297,6 +297,7 @@ class NeuralMemory(Module):
         symplectic_gate_kwargs: dict | None = None, # Optional kwargs forwarded to SymplecticGating
         use_dmd_gating = False, # New argument
         combine_symplectic_and_dmd = False, # Optional: blend both gating signals when both are enabled
+        manifold_state_keyed_paging = False, # Optional: route paging from manifold state keys when available
         num_pages = 1, # New argument: Manifold Paging for Objective Reduction
         symplectic_page_threshold: float | None = None, # Optional override for page switch threshold
         default_model_kwargs: dict = dict(
@@ -557,6 +558,7 @@ class NeuralMemory(Module):
 
         self.use_dmd_gating = use_dmd_gating
         self.combine_symplectic_and_dmd = combine_symplectic_and_dmd
+        self.manifold_state_keyed_paging = manifold_state_keyed_paging
         if use_dmd_gating:
              # Rank=None implies full rank SVD
              self.dmd = DynamicModeDecomposition(rank=None)
@@ -568,6 +570,9 @@ class NeuralMemory(Module):
 
              # Default threshold for DMD might need tuning (DMD error is ~0.5 for random)
              self.symplectic_page_threshold = default(symplectic_page_threshold, 0.4)
+
+        if self.manifold_state_keyed_paging and not hasattr(self, 'page_switch_events'):
+            self.register_buffer('page_switch_events', torch.zeros(1, dtype=torch.long))
 
 
         # learned transition, as seeing instability when decreasing neural mem batch size
@@ -697,10 +702,14 @@ class NeuralMemory(Module):
         if self.use_symplectic_gating or self.use_dmd_gating:
              # Calculate Complexity
              use_combined = self.combine_symplectic_and_dmd and self.use_symplectic_gating and self.use_dmd_gating
+             manifold_state = None
 
              if use_combined:
                  # Symplectic signal: local geometric twist.
-                 symplectic_complexity = self.symplectic_gate(seq)
+                 if self.manifold_state_keyed_paging:
+                     symplectic_complexity, manifold_state = self.symplectic_gate(seq, return_manifold_state = True)
+                 else:
+                     symplectic_complexity = self.symplectic_gate(seq)
                  # DMD signal: global linear-dynamics reconstruction error.
                  dmd_error = self.dmd(seq)
                  dmd_complexity = torch.tanh(dmd_error).view(-1, 1, 1).expand(-1, seq.shape[1], 1)
@@ -710,7 +719,10 @@ class NeuralMemory(Module):
 
              elif self.use_symplectic_gating:
                  # (B, Seq, 1)
-                 complexity = self.symplectic_gate(seq)
+                 if self.manifold_state_keyed_paging:
+                     complexity, manifold_state = self.symplectic_gate(seq, return_manifold_state = True)
+                 else:
+                     complexity = self.symplectic_gate(seq)
                  scale_param = self.symplectic_complexity_scale
 
              elif self.use_dmd_gating:
@@ -759,13 +771,22 @@ class NeuralMemory(Module):
                  # Increment logging counter (approximate, counts events not total switches)
                  if should_switch.any():
                      self.page_switch_events.add_(should_switch.sum())
-                 
-                 # Switch pages for the samples that triggered the threshold
-                 active_page_indices = torch.where(
-                     should_switch,
-                     (active_page_indices + 1) % self.num_pages,
-                     active_page_indices
-                 )
+
+                 if self.manifold_state_keyed_paging and exists(manifold_state):
+                     phase_angle = manifold_state.get('phase_angle', None)
+                     if exists(phase_angle):
+                         mean_sin = phase_angle.sin().mean(dim = (-1, -2))
+                         mean_cos = phase_angle.cos().mean(dim = (-1, -2))
+                         mean_angle = torch.atan2(mean_sin, mean_cos)
+                         normalized = ((mean_angle + math.pi) / (2 * math.pi)).clamp(min = 0., max = 0.999999)
+                         keyed_pages = (normalized * self.num_pages).long().clamp(max = self.num_pages - 1)
+                     else:
+                         keyed_pages = (active_page_indices + 1) % self.num_pages
+                 else:
+                     keyed_pages = (active_page_indices + 1) % self.num_pages
+
+                 # Switch pages for the samples that triggered the threshold.
+                 active_page_indices = torch.where(should_switch, keyed_pages, active_page_indices)
 
                  # Update active_page_indices for next state return
                  # (It stays as tensor for now)

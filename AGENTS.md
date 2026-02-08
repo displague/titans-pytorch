@@ -32,9 +32,9 @@ Portable directions for experimental work in this repository so changes remain o
 
 5. Documentation and Citation
 - For each enhancement, record:
-- Theory or paper context
-- Intent and hypothesis
-- Success and failure interpretation
+- Theory or paper context.
+- Intent and hypothesis.
+- Success and failure interpretation.
 - Add references in docstrings, `README.md`, or `IMPLEMENTED.md`.
 
 6. Progress Tracking
@@ -42,6 +42,24 @@ Portable directions for experimental work in this repository so changes remain o
 - `TODO.md`: active and planned work with timestamps.
 - `IMPLEMENTED.md`: timestamped AI implementation history and decisions.
 - When an item is completed, update both files to reflect the move.
+
+## Cross-Field Research Pool
+- Cosmology.
+- Quantum physics / QFT.
+- String theory.
+- Statistics.
+- Topology.
+- Language theory.
+- Fusion research.
+- Neuroscience.
+- Social psychology.
+- Linear algebra.
+
+## Cross-Field Integration Guidance
+- Map each external concept to one explicit model hypothesis.
+- Add one toggle for each hypothesis so baseline behavior stays unchanged.
+- Add one benchmark metric and one failure metric for each hypothesis.
+- Record why the mapping might fail, not only why it might work.
 
 ## Practical Guidance
 - Backward compatibility is required unless a breaking change is explicitly requested.
