@@ -27,6 +27,8 @@ class SymplecticGating(nn.Module):
     using per-step angular change in paired latent channels (closed-loop / limit-cycle proxy).
     Optional quorum/budget policy (`quorum_mix > 0`) applies local consensus smoothing and
     optional sequence-budgeted selection on complexity scores.
+    Optional codebook policy (`codebook_mix > 0`) models combinatorial receptor coding by
+    tracking shifts in sparse codebook assignments over time.
 
     When `diag=True`, the gate and magnitude projections are constrained to diagonal
     (elementwise) scaling for a "diagonal tensor" proxy.
@@ -48,7 +50,11 @@ class SymplecticGating(nn.Module):
         quorum_window: int = 3,
         quorum_threshold: float = 0.5,
         quorum_temperature: float = 0.1,
-        budget_topk_ratio: float | None = None
+        budget_topk_ratio: float | None = None,
+        codebook_mix: float = 0.0,
+        codebook_size: int = 16,
+        codebook_temperature: float = 0.1,
+        codebook_topk: int | None = None
     ):
         super().__init__()
         # Projections to map input space to 'Twist Space' (Lie Algebra dual $\mathfrak{g}^*$ approximation)
@@ -67,6 +73,10 @@ class SymplecticGating(nn.Module):
         self.quorum_threshold = quorum_threshold
         self.quorum_temperature = quorum_temperature
         self.budget_topk_ratio = budget_topk_ratio
+        self.codebook_mix = codebook_mix
+        self.codebook_size = codebook_size
+        self.codebook_temperature = codebook_temperature
+        self.codebook_topk = codebook_topk
 
         if self.top_k is not None and self.adaptive_topk_ratio is not None:
             raise ValueError("Only one of top_k or adaptive_topk_ratio can be set.")
@@ -86,6 +96,16 @@ class SymplecticGating(nn.Module):
             raise ValueError("budget_topk_ratio must be in (0, 1].")
         if self.budget_topk_ratio is not None and self.quorum_mix <= 0.0:
             raise ValueError("budget_topk_ratio requires quorum_mix > 0.")
+        if not (0.0 <= self.codebook_mix <= 1.0):
+            raise ValueError("codebook_mix must be in [0, 1].")
+        if self.codebook_size < 2:
+            raise ValueError("codebook_size must be >= 2.")
+        if self.codebook_temperature <= 0.0:
+            raise ValueError("codebook_temperature must be > 0.")
+        if self.codebook_topk is not None and self.codebook_topk < 1:
+            raise ValueError("codebook_topk must be >= 1.")
+        if self.codebook_topk is not None and self.codebook_topk > self.codebook_size:
+            raise ValueError("codebook_topk must be <= codebook_size.")
 
         if self.gated:
             if self.diag:
@@ -102,6 +122,10 @@ class SymplecticGating(nn.Module):
             self.phase_pairs = phase_pairs if phase_pairs is not None else max(1, dim // 2)
             self.to_phase = nn.Linear(dim, self.phase_pairs * 2, bias = False)
             nn.init.normal_(self.to_phase.weight, std = 0.02)
+
+        if self.codebook_mix > 0.0:
+            self.to_codebook = nn.Linear(dim, self.codebook_size, bias = False)
+            nn.init.normal_(self.to_codebook.weight, std = 0.02)
 
     def compute_sparse_mask(
         self,
@@ -203,11 +227,37 @@ class SymplecticGating(nn.Module):
             return complexity_score, quorum_score, budget_k
         return complexity_score, quorum_score
 
+    def compute_codebook_score(
+        self,
+        x: torch.Tensor
+    ):
+        if self.codebook_mix <= 0.0:
+            return torch.zeros(*x.shape[:2], 1, device = x.device, dtype = x.dtype)
+
+        logits = self.to_codebook(x) / self.codebook_temperature
+        codebook_probs = logits.softmax(dim = -1)
+
+        if self.codebook_topk is not None and self.codebook_topk < self.codebook_size:
+            topk_indices = codebook_probs.topk(self.codebook_topk, dim = -1).indices
+            mask = torch.zeros_like(codebook_probs, dtype = torch.bool)
+            mask.scatter_(-1, topk_indices, True)
+            codebook_probs = torch.where(mask, codebook_probs, torch.zeros_like(codebook_probs))
+            codebook_probs = codebook_probs / codebook_probs.sum(dim = -1, keepdim = True).clamp(min = 1e-8)
+
+        # Total variation distance between consecutive code distributions.
+        # For probability distributions p, q: TV = 0.5 * ||p - q||_1 in [0, 1].
+        code_prev = codebook_probs[:, :-1]
+        code_curr = codebook_probs[:, 1:]
+        codebook_score = 0.5 * (code_curr - code_prev).abs().sum(dim = -1, keepdim = True)
+        codebook_score = F.pad(codebook_score, (0, 0, 1, 0), value = 0.0)
+        return codebook_score
+
     def forward(
         self,
         x,
         return_moment_map = False,
         return_phase_map = False,
+        return_codebook_map = False,
         return_sparse_k = False,
         return_manifold_state = False,
         return_quorum_map = False
@@ -290,6 +340,11 @@ class SymplecticGating(nn.Module):
 
             complexity_score = (1. - self.phase_mix) * complexity_score + self.phase_mix * phase_score
 
+        codebook_score = torch.zeros_like(complexity_score)
+        if self.codebook_mix > 0.0:
+            codebook_score = self.compute_codebook_score(x)
+            complexity_score = (1. - self.codebook_mix) * complexity_score + self.codebook_mix * codebook_score
+
         complexity_score, quorum_score = self.apply_quorum_policy(complexity_score)
 
         if return_moment_map:
@@ -297,6 +352,8 @@ class SymplecticGating(nn.Module):
              momentum_map = F.pad(momentum_map, (0, 0, 1, 0), value=0.0)
              if return_phase_map:
                  output = [complexity_score, momentum_map, phase_score]
+                 if return_codebook_map:
+                     output.append(codebook_score)
                  if return_quorum_map:
                      output.append(quorum_score)
                  if return_sparse_k:
@@ -305,6 +362,8 @@ class SymplecticGating(nn.Module):
                      output.append(manifold_state)
                  return tuple(output)
              output = [complexity_score, momentum_map]
+             if return_codebook_map:
+                 output.append(codebook_score)
              if return_quorum_map:
                  output.append(quorum_score)
              if return_sparse_k:
@@ -315,6 +374,8 @@ class SymplecticGating(nn.Module):
 
         if return_phase_map:
             output = [complexity_score, phase_score]
+            if return_codebook_map:
+                output.append(codebook_score)
             if return_quorum_map:
                 output.append(quorum_score)
             if return_sparse_k:
@@ -323,8 +384,10 @@ class SymplecticGating(nn.Module):
                 output.append(manifold_state)
             return tuple(output)
 
-        if return_sparse_k or return_manifold_state or return_quorum_map:
+        if return_sparse_k or return_manifold_state or return_quorum_map or return_codebook_map:
             output = [complexity_score]
+            if return_codebook_map:
+                output.append(codebook_score)
             if return_quorum_map:
                 output.append(quorum_score)
             if return_sparse_k:

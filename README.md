@@ -181,6 +181,7 @@ Key optional flags in `SymplecticGating`:
 - `phase_mix`, `phase_pairs`: periodic latent phase-complexity signal.
 - `quorum_mix`, `quorum_window`, `quorum_threshold`, `quorum_temperature`: quorum-style local consensus filter on complexity.
 - `budget_topk_ratio`: optional sequence budget for quorum-selected positions.
+- `codebook_mix`, `codebook_size`, `codebook_temperature`, `codebook_topk`: combinatorial codebook routing signal (taste/odor-inspired mixture coding).
 
 Additional optional `NeuralMemory` toggles:
 

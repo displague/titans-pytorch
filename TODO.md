@@ -13,9 +13,9 @@
 - [2026-02-08 22:57:50] Calibrate switch-budget targets (`switch_target`, `entropy_target`) for nontrivial switch-rate reduction.
 - Hypothesis: target-band tuning can lower switch-rate without regressing reconstruction quality.
 - Toggle plan: benchmark-only sweeps in `benchmark_switch_budget.py`; core runtime defaults unchanged.
-- [2026-02-08 19:29:49] Taste/odor combinatorial codebook gating probe.
-- Hypothesis: sparse combinatorial receptor-style subspace probing can improve mixture separation in synthetic multi-motif recall.
-- Toggle plan: optional codebook projection inside `SymplecticGating` with a small feature bank.
+- [2026-02-09 00:54:38] Calibrate combinatorial codebook settings (`codebook_mix`, `codebook_size`, `codebook_topk`) on multi-motif recall.
+- Hypothesis: tuned codebook sparsity can improve mixture-separation robustness with manageable overhead.
+- Toggle plan: benchmark-only sweeps and champion comparison in gate-variant and long-horizon benchmarks.
 
 ## Research Narrative (Cross-Field Source Set)
 - Microbiology -> quorum thresholding: `https://pubmed.ncbi.nlm.nih.gov/37057353/`

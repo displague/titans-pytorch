@@ -126,6 +126,22 @@
 - Spiral: unconstrained recon `0.015061`, constrained recon `0.011531`, entropy `0.086`.
 - Helix: unconstrained recon `0.010996`, constrained recon `0.009805`, entropy `0.045`.
 
+- [2026-02-09 00:54:38] Implemented taste/odor-inspired combinatorial codebook probe in `SymplecticGating` (opt-in).
+- New gate kwargs: `codebook_mix`, `codebook_size`, `codebook_temperature`, `codebook_topk`.
+- Policy:
+- projects tokens to a codebook assignment simplex.
+- computes transition intensity from total-variation distance between consecutive assignments.
+- blends codebook transition score into complexity (`codebook_mix`).
+- Added optional `return_codebook_map` output path for diagnostics.
+
+- [2026-02-09 00:54:38] Added codebook tests in `tests/test_symplectic.py`:
+- `test_symplectic_gate_codebook_map_shape`
+- `test_symplectic_gate_codebook_prefers_mixture_shifts`
+
+- [2026-02-09 00:54:38] Extended gate ablation benchmark with `combinatorial_codebook` variant.
+- Run tag `gate_variants_v6` (CUDA, steps=12):
+- `combinatorial_codebook`: spiral `0.029904`, helix `0.030032`, codebook `0.3595`, quorum `0.5643`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -141,6 +157,9 @@
 - [2026-02-08 20:38:49] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
 - [2026-02-08 22:57:50] `python -m pytest -q tests/test_symplectic.py` -> `17 passed`.
 - [2026-02-08 22:57:50] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
+- [2026-02-09 00:54:38] `python -m pytest -q tests/test_symplectic.py` -> `19 passed`.
+- [2026-02-09 00:54:38] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
+- [2026-02-09 00:54:38] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

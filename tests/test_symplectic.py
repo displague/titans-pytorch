@@ -329,3 +329,46 @@ def test_symplectic_gate_quorum_budget_limits_positions():
 def test_symplectic_gate_quorum_budget_requires_quorum_mix():
     with pytest.raises(ValueError):
         SymplecticGating(8, budget_topk_ratio = 0.25)
+
+def test_symplectic_gate_codebook_map_shape():
+    gate = SymplecticGating(
+        8,
+        codebook_mix = 0.8,
+        codebook_size = 6,
+        codebook_temperature = 0.2,
+        codebook_topk = 2
+    )
+    x = torch.randn(2, 12, 8)
+
+    complexity, codebook = gate(x, return_codebook_map = True)
+
+    assert complexity.shape == (2, 12, 1)
+    assert codebook.shape == (2, 12, 1)
+    assert (codebook >= 0).all() and (codebook <= 1).all()
+
+def test_symplectic_gate_codebook_prefers_mixture_shifts():
+    dim = 4
+    seq_len = 32
+    gate = SymplecticGating(
+        dim,
+        codebook_mix = 1.0,
+        codebook_size = 2,
+        codebook_temperature = 0.1
+    )
+
+    with torch.no_grad():
+        gate.to_codebook.weight.zero_()
+        gate.to_codebook.weight[0, 0] = 5.0
+        gate.to_codebook.weight[1, 1] = 5.0
+
+    stable = torch.zeros(1, seq_len, dim)
+    stable[..., 0] = 1.0
+
+    switching = torch.zeros(1, seq_len, dim)
+    switching[0, ::2, 0] = 1.0
+    switching[0, 1::2, 1] = 1.0
+
+    stable_mean = gate(stable).mean().item()
+    switching_mean = gate(switching).mean().item()
+
+    assert switching_mean > stable_mean + 0.05
