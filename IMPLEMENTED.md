@@ -113,6 +113,19 @@
 - Run tag `gate_variants_v5` (CUDA, steps=12):
 - `kinetics_coupled`: spiral `0.028904`, helix `0.029320`, complexity `0.0463`, quorum `0.1632`.
 
+- [2026-02-08 22:57:50] Implemented information/economic budget controller benchmark loop.
+- Added `benchmarks/benchmark_switch_budget.py`.
+- Adds benchmark-time penalties:
+- switch-budget penalty for exceeding target switch rate.
+- routing-entropy penalty toward target entropy (rational inattention proxy).
+- No runtime model behavior changes; benchmark-only objective shaping.
+- Outputs:
+- `benchmarks/results/switch_budget_latest.json`
+- `benchmarks/results/switch_budget_history.csv`
+- Run tag `switch_budget_v1` (CUDA, steps=20, page-threshold=0.05):
+- Spiral: unconstrained recon `0.015061`, constrained recon `0.011531`, entropy `0.086`.
+- Helix: unconstrained recon `0.010996`, constrained recon `0.009805`, entropy `0.045`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -126,6 +139,8 @@
 - [2026-02-08 20:38:49] `python -m pytest -q tests/test_symplectic.py` -> `17 passed`.
 - [2026-02-08 20:38:49] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
 - [2026-02-08 20:38:49] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
+- [2026-02-08 22:57:50] `python -m pytest -q tests/test_symplectic.py` -> `17 passed`.
+- [2026-02-08 22:57:50] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.
