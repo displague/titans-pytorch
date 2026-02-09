@@ -69,6 +69,21 @@
 - Run tag `gate_variants_v3` (CUDA, steps=12):
 - `quorum_budget`: spiral `0.033196`, helix `0.023264`, quorum `0.1178`.
 
+- [2026-02-08 19:29:49] Implemented taxonomy-inspired hierarchical page routing in `NeuralMemory` (opt-in).
+- New constructor kwargs: `hierarchical_paging`, `coarse_pages`, `fine_pages`, `hierarchy_mix`.
+- Routing policy:
+- coarse page from complexity bucket.
+- fine page from manifold phase-angle bucket when available, else sequential fallback.
+- blended target via `hierarchy_mix` in `[0, 1]`.
+- Added validation checks: `coarse_pages * fine_pages == num_pages` and range guards.
+
+- [2026-02-08 19:29:49] Added hierarchical routing test:
+- `tests/test_symplectic_reduction.py::test_hierarchical_paging_routes_with_coarse_and_fine_keys`.
+
+- [2026-02-08 19:29:49] Extended gate ablation benchmark with `hierarchical_route` variant.
+- Run tag `gate_variants_v4` (CUDA, steps=12):
+- `hierarchical_route`: spiral `0.029726`, helix `0.027642`, complexity `0.1531`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -76,6 +91,9 @@
 - [2026-02-08 19:03:42] `python -m pytest -q tests/test_symplectic.py` -> `17 passed`.
 - [2026-02-08 19:03:42] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
 - [2026-02-08 19:03:42] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
+- [2026-02-08 19:29:49] `python -m pytest -q tests/test_symplectic.py` -> `17 passed`.
+- [2026-02-08 19:29:49] `python -m pytest -q tests/test_symplectic_reduction.py` -> `6 passed`.
+- [2026-02-08 19:29:49] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

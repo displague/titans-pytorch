@@ -283,6 +283,50 @@ def test_manifold_state_keyed_paging_routes_by_angle_bucket():
 
     assert state.active_page_indices.tolist() == [0, 1, 2]
 
+def test_hierarchical_paging_routes_with_coarse_and_fine_keys():
+    dim = 8
+    mem = NeuralMemory(
+        dim = dim,
+        chunk_size = 2,
+        num_pages = 4,
+        heads = 1,
+        momentum = False,
+        use_symplectic_gating = True,
+        hierarchical_paging = True,
+        coarse_pages = 2,
+        fine_pages = 2,
+        hierarchy_mix = 1.0,
+        symplectic_page_threshold = 0.1
+    )
+
+    class MockHierarchicalGate(nn.Module):
+        def forward(self, x, return_manifold_state = False):
+            batch, seq_len, _ = x.shape
+            values = torch.tensor([0.2, 0.8], device = x.device, dtype = x.dtype)[:batch]
+            complexity = values.view(batch, 1, 1).expand(batch, seq_len, 1)
+            if not return_manifold_state:
+                return complexity
+
+            angles = torch.tensor(
+                [0.75 * torch.pi, -0.75 * torch.pi],
+                device = x.device,
+                dtype = x.dtype
+            )[:batch]
+            angles = angles.view(batch, 1, 1).expand(batch, seq_len, 1)
+            manifold_state = dict(
+                phase_angle = angles,
+                phase_radius = torch.ones_like(angles)
+            )
+            return complexity, manifold_state
+
+    mem.symplectic_gate = MockHierarchicalGate()
+
+    seq = torch.randn(2, 2, dim)
+    _, state = mem(seq)
+
+    # coarse=0 with fine=1 -> page 1 ; coarse=1 with fine=0 -> page 2
+    assert state.active_page_indices.tolist() == [1, 2]
+
 
 if __name__ == "__main__":
     test_symplectic_gating_logic()

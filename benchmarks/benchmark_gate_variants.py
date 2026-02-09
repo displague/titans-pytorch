@@ -125,48 +125,89 @@ if __name__ == "__main__":
     spiral = make_spiral_data(args.batch_size, args.seq_len, args.dim, device)
     helix = make_helix_data(args.batch_size, args.seq_len, args.dim, device)
     probe = spiral[:1]
+    hierarchical_pages = max(args.pages, 4)
+    if hierarchical_pages % 2 != 0:
+        hierarchical_pages += 1
 
     variants = {
-        "symplectic_default": {},
-        "hard_diag": dict(gated = True, diag = True, gate_mode = "hard"),
-        "soft_diag": dict(gated = True, diag = True, gate_mode = "soft"),
-        "hard_topk8": dict(gated = True, diag = True, gate_mode = "hard", top_k = 8),
+        "symplectic_default": dict(gate_kwargs = {}, mem_kwargs = {}),
+        "hard_diag": dict(
+            gate_kwargs = dict(gated = True, diag = True, gate_mode = "hard"),
+            mem_kwargs = {}
+        ),
+        "soft_diag": dict(
+            gate_kwargs = dict(gated = True, diag = True, gate_mode = "soft"),
+            mem_kwargs = {}
+        ),
+        "hard_topk8": dict(
+            gate_kwargs = dict(gated = True, diag = True, gate_mode = "hard", top_k = 8),
+            mem_kwargs = {}
+        ),
         "adaptive_topk": dict(
-            gated = True,
-            diag = True,
-            gate_mode = "soft",
-            adaptive_topk_ratio = 0.6,
-            adaptive_topk_min_k = 1
+            gate_kwargs = dict(
+                gated = True,
+                diag = True,
+                gate_mode = "soft",
+                adaptive_topk_ratio = 0.6,
+                adaptive_topk_min_k = 1
+            ),
+            mem_kwargs = {}
         ),
         "phase_mix": dict(
-            gated = True,
-            diag = True,
-            gate_mode = "soft",
-            phase_mix = 0.5,
-            phase_pairs = max(1, args.dim // 8)
+            gate_kwargs = dict(
+                gated = True,
+                diag = True,
+                gate_mode = "soft",
+                phase_mix = 0.5,
+                phase_pairs = max(1, args.dim // 8)
+            ),
+            mem_kwargs = {}
         ),
         "quorum_budget": dict(
-            gated = True,
-            diag = True,
-            gate_mode = "soft",
-            phase_mix = 0.5,
-            phase_pairs = max(1, args.dim // 8),
-            quorum_mix = 0.75,
-            quorum_window = 5,
-            quorum_threshold = 0.25,
-            quorum_temperature = 0.1,
-            budget_topk_ratio = 0.2
+            gate_kwargs = dict(
+                gated = True,
+                diag = True,
+                gate_mode = "soft",
+                phase_mix = 0.5,
+                phase_pairs = max(1, args.dim // 8),
+                quorum_mix = 0.75,
+                quorum_window = 5,
+                quorum_threshold = 0.25,
+                quorum_temperature = 0.1,
+                budget_topk_ratio = 0.2
+            ),
+            mem_kwargs = {}
+        ),
+        "hierarchical_route": dict(
+            gate_kwargs = dict(
+                gated = True,
+                diag = True,
+                gate_mode = "soft",
+                phase_mix = 0.5,
+                phase_pairs = max(1, args.dim // 8)
+            ),
+            mem_kwargs = dict(
+                num_pages = hierarchical_pages,
+                hierarchical_paging = True,
+                coarse_pages = 2,
+                fine_pages = hierarchical_pages // 2,
+                hierarchy_mix = 1.0
+            )
         )
     }
 
     results = {}
-    for name, gate_kwargs in variants.items():
+    for name, cfg in variants.items():
+        gate_kwargs = cfg["gate_kwargs"]
+        mem_kwargs = cfg["mem_kwargs"]
+        variant_pages = mem_kwargs.get("num_pages", args.pages)
         model_spiral = NeuralMemory(
             dim = args.dim,
             chunk_size = args.chunk_size,
             use_symplectic_gating = True,
-            num_pages = args.pages,
-            symplectic_gate_kwargs = gate_kwargs
+            num_pages = variant_pages,
+            symplectic_gate_kwargs = gate_kwargs,
+            **{k: v for k, v in mem_kwargs.items() if k != "num_pages"}
         ).to(device)
         spiral_stats = run_one_task(model_spiral, spiral, args.steps)
         gate_stats = summarize_gate(model_spiral, probe)
@@ -175,8 +216,9 @@ if __name__ == "__main__":
             dim = args.dim,
             chunk_size = args.chunk_size,
             use_symplectic_gating = True,
-            num_pages = args.pages,
-            symplectic_gate_kwargs = gate_kwargs
+            num_pages = variant_pages,
+            symplectic_gate_kwargs = gate_kwargs,
+            **{k: v for k, v in mem_kwargs.items() if k != "num_pages"}
         ).to(device)
         helix_stats = run_one_task(model_helix, helix, args.steps)
 

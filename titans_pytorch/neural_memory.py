@@ -298,6 +298,10 @@ class NeuralMemory(Module):
         use_dmd_gating = False, # New argument
         combine_symplectic_and_dmd = False, # Optional: blend both gating signals when both are enabled
         manifold_state_keyed_paging = False, # Optional: route paging from manifold state keys when available
+        hierarchical_paging = False, # Optional: two-stage coarse/fine page routing
+        coarse_pages: int | None = None, # Optional: number of coarse routing groups
+        fine_pages: int | None = None, # Optional: pages per coarse group
+        hierarchy_mix: float = 1.0, # 0 = sequential fallback, 1 = fully hierarchical routing
         num_pages = 1, # New argument: Manifold Paging for Objective Reduction
         symplectic_page_threshold: float | None = None, # Optional override for page switch threshold
         default_model_kwargs: dict = dict(
@@ -559,6 +563,21 @@ class NeuralMemory(Module):
         self.use_dmd_gating = use_dmd_gating
         self.combine_symplectic_and_dmd = combine_symplectic_and_dmd
         self.manifold_state_keyed_paging = manifold_state_keyed_paging
+        self.hierarchical_paging = hierarchical_paging
+        self.coarse_pages = default(coarse_pages, 1)
+        self.fine_pages = default(fine_pages, self.num_pages)
+        self.hierarchy_mix = hierarchy_mix
+
+        if not (0.0 <= self.hierarchy_mix <= 1.0):
+            raise ValueError("hierarchy_mix must be in [0, 1].")
+        if self.hierarchical_paging:
+            if self.num_pages <= 1:
+                raise ValueError("hierarchical_paging requires num_pages > 1.")
+            if self.coarse_pages < 1 or self.fine_pages < 1:
+                raise ValueError("coarse_pages and fine_pages must be >= 1.")
+            if (self.coarse_pages * self.fine_pages) != self.num_pages:
+                raise ValueError("coarse_pages * fine_pages must equal num_pages when hierarchical_paging is enabled.")
+
         if use_dmd_gating:
              # Rank=None implies full rank SVD
              self.dmd = DynamicModeDecomposition(rank=None)
@@ -702,11 +721,12 @@ class NeuralMemory(Module):
         if self.use_symplectic_gating or self.use_dmd_gating:
              # Calculate Complexity
              use_combined = self.combine_symplectic_and_dmd and self.use_symplectic_gating and self.use_dmd_gating
+             needs_manifold_state = self.manifold_state_keyed_paging or self.hierarchical_paging
              manifold_state = None
 
              if use_combined:
                  # Symplectic signal: local geometric twist.
-                 if self.manifold_state_keyed_paging:
+                 if needs_manifold_state:
                      symplectic_complexity, manifold_state = self.symplectic_gate(seq, return_manifold_state = True)
                  else:
                      symplectic_complexity = self.symplectic_gate(seq)
@@ -719,7 +739,7 @@ class NeuralMemory(Module):
 
              elif self.use_symplectic_gating:
                  # (B, Seq, 1)
-                 if self.manifold_state_keyed_paging:
+                 if needs_manifold_state:
                      complexity, manifold_state = self.symplectic_gate(seq, return_manifold_state = True)
                  else:
                      complexity = self.symplectic_gate(seq)
@@ -772,18 +792,40 @@ class NeuralMemory(Module):
                  if should_switch.any():
                      self.page_switch_events.add_(should_switch.sum())
 
-                 if self.manifold_state_keyed_paging and exists(manifold_state):
+                 sequential_pages = (active_page_indices + 1) % self.num_pages
+                 keyed_pages = sequential_pages
+                 manifold_pages = None
+
+                 if exists(manifold_state):
                      phase_angle = manifold_state.get('phase_angle', None)
                      if exists(phase_angle):
                          mean_sin = phase_angle.sin().mean(dim = (-1, -2))
                          mean_cos = phase_angle.cos().mean(dim = (-1, -2))
                          mean_angle = torch.atan2(mean_sin, mean_cos)
                          normalized = ((mean_angle + math.pi) / (2 * math.pi)).clamp(min = 0., max = 0.999999)
-                         keyed_pages = (normalized * self.num_pages).long().clamp(max = self.num_pages - 1)
+                         fine_page_count = self.fine_pages if self.hierarchical_paging else self.num_pages
+                         manifold_pages = (normalized * fine_page_count).long().clamp(max = fine_page_count - 1)
+
+                 if self.hierarchical_paging:
+                     coarse_scores = max_complexity_per_sample.squeeze(-1).clamp(min = 0., max = 0.999999)
+                     coarse_index = (coarse_scores * self.coarse_pages).long().clamp(max = self.coarse_pages - 1)
+
+                     fallback_fine = sequential_pages % self.fine_pages
+                     fine_index = manifold_pages if exists(manifold_pages) else fallback_fine
+                     hierarchical_pages = (coarse_index * self.fine_pages + fine_index).clamp(max = self.num_pages - 1)
+
+                     if self.hierarchy_mix <= 0.0:
+                         keyed_pages = sequential_pages
+                     elif self.hierarchy_mix >= 1.0:
+                         keyed_pages = hierarchical_pages
                      else:
-                         keyed_pages = (active_page_indices + 1) % self.num_pages
-                 else:
-                     keyed_pages = (active_page_indices + 1) % self.num_pages
+                         blended = (
+                             (1. - self.hierarchy_mix) * sequential_pages.float()
+                             + self.hierarchy_mix * hierarchical_pages.float()
+                         )
+                         keyed_pages = blended.round().long().clamp(min = 0, max = self.num_pages - 1)
+                 elif self.manifold_state_keyed_paging and exists(manifold_pages):
+                     keyed_pages = manifold_pages
 
                  # Switch pages for the samples that triggered the threshold.
                  active_page_indices = torch.where(should_switch, keyed_pages, active_page_indices)

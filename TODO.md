@@ -4,11 +4,18 @@
 - [2026-02-08 17:38:45] Evaluate `manifold_state_keyed_paging` against threshold-step paging on long-horizon and interference tasks.
 - [2026-02-08 17:38:45] Convert threshold sweep output into documented recommended switch-rate bands.
 - [2026-02-08 17:55:14] Wire `benchmarks/check_regression.py` into CI with a checked-in rolling baseline artifact policy.
-- [2026-02-08 19:03:42] Next topic set experiment: taxonomy-informed hierarchical routing with information-budget regularization.
-- Hypothesis: combine taxonomy-style hierarchy and bounded-information routing to split coarse page decisions from fine page refinement.
-- Toggle plan: add optional two-stage page selection (`coarse_pages`, `fine_pages`, `hierarchy_mix`) behind `symplectic_gate_kwargs`/paging flags.
-- Success metrics: improved long-horizon recovery and reduced interference at fixed compute budget.
-- Failure metrics: extra routing overhead without measurable recovery/interference gains.
+- [2026-02-08 19:29:49] Genetics-inspired mutation/selection sweep for gate hyperparameters.
+- Hypothesis: lightweight population search over gate toggles can find robust settings faster than manual sweeps.
+- Toggle plan: benchmark-time search over `phase_mix`, `quorum_mix`, `budget_topk_ratio`, and hierarchy settings; runtime defaults unchanged.
+- [2026-02-08 19:29:49] Chemistry-inspired kinetics controller for memory update/decay coupling.
+- Hypothesis: reaction-rate style coupling between `adaptive_lr` and `decay_factor` can improve perturb/recovery balance.
+- Toggle plan: optional kinetics coefficient path in `NeuralMemory` (off by default).
+- [2026-02-08 19:29:49] Information/economic budget controller for switch-rate targets.
+- Hypothesis: bounded-information routing (rational inattention proxy) can keep page-switch entropy in a desired band.
+- Toggle plan: optional entropy/switch-budget penalty in benchmark training loops; no baseline behavior change.
+- [2026-02-08 19:29:49] Taste/odor combinatorial codebook gating probe.
+- Hypothesis: sparse combinatorial receptor-style subspace probing can improve mixture separation in synthetic multi-motif recall.
+- Toggle plan: optional codebook projection inside `SymplecticGating` with a small feature bank.
 
 ## Research Narrative (Cross-Field Source Set)
 - Microbiology -> quorum thresholding: `https://pubmed.ncbi.nlm.nih.gov/37057353/`

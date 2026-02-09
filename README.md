@@ -186,6 +186,9 @@ Additional optional `NeuralMemory` toggles:
 
 - `combine_symplectic_and_dmd`: blend symplectic and DMD complexity signals.
 - `manifold_state_keyed_paging`: route page selection from manifold phase-angle keys instead of only incrementing page index on threshold crossings.
+- `hierarchical_paging`: enable two-stage coarse/fine page routing.
+- `coarse_pages`, `fine_pages`: coarse routing groups and pages per group (`coarse_pages * fine_pages = num_pages`).
+- `hierarchy_mix`: blend between sequential fallback (`0`) and hierarchical target routing (`1`).
 
 Related research context:
 
