@@ -49,10 +49,33 @@
 - Validation run:
 - `python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_latest.json --latest benchmarks/results/symplectic_latest.json` -> `passed`.
 
+- [2026-02-08 18:57:55] Added cross-field narrative hypothesis for next experiment set in `TODO.md`.
+- Source pool spans microbiology, genetics, chemistry, taste/odor detection, taxonomy science, information theory, and economic theory.
+- Narrative target: quorum-budgeted combinatorial gating for robust page switching under noise.
+
+- [2026-02-08 18:57:55] Added quorum-budgeted gating experiment controls in `SymplecticGating` (all opt-in).
+- New kwargs: `quorum_mix`, `quorum_window`, `quorum_threshold`, `quorum_temperature`, `budget_topk_ratio`.
+- Added `apply_quorum_policy(...)` helper and optional `return_quorum_map` forward output.
+- Integrated quorum policy into final complexity score post-processing.
+
+- [2026-02-08 18:57:55] Added tests for quorum policy behavior in `tests/test_symplectic.py`:
+- `test_symplectic_gate_quorum_policy_prefers_sustained_signal`
+- `test_symplectic_gate_quorum_budget_limits_positions`
+- `test_symplectic_gate_quorum_budget_requires_quorum_mix`
+
+- [2026-02-08 18:57:55] Extended gate ablation benchmark in `benchmarks/benchmark_gate_variants.py`:
+- Added `quorum_budget` variant.
+- Added quorum diagnostics (`quorum_mean`, `quorum_active_frac`) to gate summaries.
+- Run tag `gate_variants_v3` (CUDA, steps=12):
+- `quorum_budget`: spiral `0.033196`, helix `0.023264`, quorum `0.1178`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
+- [2026-02-08 19:03:42] `python -m pytest -q tests/test_symplectic.py` -> `17 passed`.
+- [2026-02-08 19:03:42] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
+- [2026-02-08 19:03:42] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

@@ -69,9 +69,11 @@ def run_one_task(model, data, steps):
 def summarize_gate(model, probe):
     gate = model.symplectic_gate
     with torch.no_grad():
-        complexity, sparse_k = gate(probe, return_sparse_k = True)
+        complexity, quorum, sparse_k = gate(probe, return_quorum_map = True, return_sparse_k = True)
         mean_complexity = complexity.mean().item()
         max_complexity = complexity.max().item()
+        mean_quorum = quorum.mean().item()
+        quorum_active_frac = (quorum > 0).float().mean().item()
         if sparse_k is None:
             mean_sparse_k = None
         else:
@@ -80,6 +82,8 @@ def summarize_gate(model, probe):
     return dict(
         complexity_mean = mean_complexity,
         complexity_max = max_complexity,
+        quorum_mean = mean_quorum,
+        quorum_active_frac = quorum_active_frac,
         sparse_k_mean = mean_sparse_k
     )
 
@@ -140,6 +144,18 @@ if __name__ == "__main__":
             gate_mode = "soft",
             phase_mix = 0.5,
             phase_pairs = max(1, args.dim // 8)
+        ),
+        "quorum_budget": dict(
+            gated = True,
+            diag = True,
+            gate_mode = "soft",
+            phase_mix = 0.5,
+            phase_pairs = max(1, args.dim // 8),
+            quorum_mix = 0.75,
+            quorum_window = 5,
+            quorum_threshold = 0.25,
+            quorum_temperature = 0.1,
+            budget_topk_ratio = 0.2
         )
     }
 
@@ -172,7 +188,8 @@ if __name__ == "__main__":
         print(
             f"{name:16s} | spiral={spiral_stats['final_loss']:.6f} ({spiral_stats['step_ms']:.2f} ms) "
             f"| helix={helix_stats['final_loss']:.6f} ({helix_stats['step_ms']:.2f} ms) "
-            f"| complexity={gate_stats['complexity_mean']:.4f} | sparse_k={gate_stats['sparse_k_mean']}"
+            f"| complexity={gate_stats['complexity_mean']:.4f} | quorum={gate_stats['quorum_mean']:.4f} "
+            f"| sparse_k={gate_stats['sparse_k_mean']}"
         )
 
     metrics = dict(

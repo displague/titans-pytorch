@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -23,6 +25,8 @@ class SymplecticGating(nn.Module):
     Optional adaptive sparsity (`top_k` / `adaptive_topk_ratio`) is aligned with AdaptiveK-style routing.
     Optional phase-aware complexity (`phase_mix > 0`) captures periodic latent dynamics
     using per-step angular change in paired latent channels (closed-loop / limit-cycle proxy).
+    Optional quorum/budget policy (`quorum_mix > 0`) applies local consensus smoothing and
+    optional sequence-budgeted selection on complexity scores.
 
     When `diag=True`, the gate and magnitude projections are constrained to diagonal
     (elementwise) scaling for a "diagonal tensor" proxy.
@@ -39,7 +43,12 @@ class SymplecticGating(nn.Module):
         adaptive_topk_ratio: float | None = None,
         adaptive_topk_min_k: int = 1,
         phase_mix: float = 0.0,
-        phase_pairs: int | None = None
+        phase_pairs: int | None = None,
+        quorum_mix: float = 0.0,
+        quorum_window: int = 3,
+        quorum_threshold: float = 0.5,
+        quorum_temperature: float = 0.1,
+        budget_topk_ratio: float | None = None
     ):
         super().__init__()
         # Projections to map input space to 'Twist Space' (Lie Algebra dual $\mathfrak{g}^*$ approximation)
@@ -53,6 +62,11 @@ class SymplecticGating(nn.Module):
         self.adaptive_topk_ratio = adaptive_topk_ratio
         self.adaptive_topk_min_k = adaptive_topk_min_k
         self.phase_mix = phase_mix
+        self.quorum_mix = quorum_mix
+        self.quorum_window = quorum_window
+        self.quorum_threshold = quorum_threshold
+        self.quorum_temperature = quorum_temperature
+        self.budget_topk_ratio = budget_topk_ratio
 
         if self.top_k is not None and self.adaptive_topk_ratio is not None:
             raise ValueError("Only one of top_k or adaptive_topk_ratio can be set.")
@@ -62,6 +76,16 @@ class SymplecticGating(nn.Module):
             raise ValueError("adaptive_topk_ratio must be in (0, 1].")
         if not (0.0 <= self.phase_mix <= 1.0):
             raise ValueError("phase_mix must be in [0, 1].")
+        if not (0.0 <= self.quorum_mix <= 1.0):
+            raise ValueError("quorum_mix must be in [0, 1].")
+        if self.quorum_window < 1:
+            raise ValueError("quorum_window must be >= 1.")
+        if self.quorum_temperature <= 0.0:
+            raise ValueError("quorum_temperature must be > 0.")
+        if self.budget_topk_ratio is not None and not (0.0 < self.budget_topk_ratio <= 1.0):
+            raise ValueError("budget_topk_ratio must be in (0, 1].")
+        if self.budget_topk_ratio is not None and self.quorum_mix <= 0.0:
+            raise ValueError("budget_topk_ratio requires quorum_mix > 0.")
 
         if self.gated:
             if self.diag:
@@ -137,13 +161,56 @@ class SymplecticGating(nn.Module):
             phase_angle = angle
         )
 
+    def apply_quorum_policy(
+        self,
+        complexity_score: torch.Tensor,
+        return_budget_k: bool = False
+    ):
+        quorum_score = torch.ones_like(complexity_score)
+        budget_k = None
+
+        if self.quorum_mix <= 0.0:
+            if return_budget_k:
+                return complexity_score, quorum_score, budget_k
+            return complexity_score, quorum_score
+
+        local_signal = complexity_score
+        if self.quorum_window > 1:
+            pooled = F.avg_pool1d(
+                complexity_score.transpose(1, 2),
+                kernel_size = self.quorum_window,
+                stride = 1,
+                padding = self.quorum_window // 2
+            )
+            # Keep exact sequence length for even/odd windows.
+            local_signal = pooled[..., :complexity_score.shape[1]].transpose(1, 2)
+
+        quorum_score = torch.sigmoid((local_signal - self.quorum_threshold) / self.quorum_temperature)
+
+        if self.budget_topk_ratio is not None:
+            seq_len = complexity_score.shape[1]
+            budget_k = max(1, min(seq_len, math.ceil(self.budget_topk_ratio * seq_len)))
+            quorum_rank = quorum_score.squeeze(-1)
+            topk_indices = quorum_rank.topk(k = budget_k, dim = 1).indices
+            budget_mask = torch.zeros_like(quorum_rank, dtype = torch.bool)
+            budget_mask.scatter_(1, topk_indices, True)
+            quorum_score = torch.where(budget_mask.unsqueeze(-1), quorum_score, torch.zeros_like(quorum_score))
+
+        mix = (1.0 - self.quorum_mix) + (self.quorum_mix * quorum_score)
+        complexity_score = complexity_score * mix
+
+        if return_budget_k:
+            return complexity_score, quorum_score, budget_k
+        return complexity_score, quorum_score
+
     def forward(
         self,
         x,
         return_moment_map = False,
         return_phase_map = False,
         return_sparse_k = False,
-        return_manifold_state = False
+        return_manifold_state = False,
+        return_quorum_map = False
     ):
         sparse_k = None
         manifold_state = None
@@ -223,17 +290,23 @@ class SymplecticGating(nn.Module):
 
             complexity_score = (1. - self.phase_mix) * complexity_score + self.phase_mix * phase_score
 
+        complexity_score, quorum_score = self.apply_quorum_policy(complexity_score)
+
         if return_moment_map:
              # Also pad the raw moment map
              momentum_map = F.pad(momentum_map, (0, 0, 1, 0), value=0.0)
              if return_phase_map:
                  output = [complexity_score, momentum_map, phase_score]
+                 if return_quorum_map:
+                     output.append(quorum_score)
                  if return_sparse_k:
                      output.append(sparse_k)
                  if return_manifold_state:
                      output.append(manifold_state)
                  return tuple(output)
              output = [complexity_score, momentum_map]
+             if return_quorum_map:
+                 output.append(quorum_score)
              if return_sparse_k:
                  output.append(sparse_k)
              if return_manifold_state:
@@ -242,14 +315,18 @@ class SymplecticGating(nn.Module):
 
         if return_phase_map:
             output = [complexity_score, phase_score]
+            if return_quorum_map:
+                output.append(quorum_score)
             if return_sparse_k:
                 output.append(sparse_k)
             if return_manifold_state:
                 output.append(manifold_state)
             return tuple(output)
 
-        if return_sparse_k or return_manifold_state:
+        if return_sparse_k or return_manifold_state or return_quorum_map:
             output = [complexity_score]
+            if return_quorum_map:
+                output.append(quorum_score)
             if return_sparse_k:
                 output.append(sparse_k)
             if return_manifold_state:

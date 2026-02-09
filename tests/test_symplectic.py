@@ -1,4 +1,5 @@
 import torch
+import pytest
 from titans_pytorch.symplectic_gate import SymplecticGating
 from titans_pytorch.neural_memory import NeuralMemory
 
@@ -291,3 +292,40 @@ def test_neural_memory_combined_symplectic_dmd():
     loss.backward()
 
     assert retrieved.shape == x.shape
+
+def test_symplectic_gate_quorum_policy_prefers_sustained_signal():
+    gate = SymplecticGating(
+        8,
+        quorum_mix = 1.0,
+        quorum_window = 3,
+        quorum_threshold = 0.5,
+        quorum_temperature = 0.05
+    )
+
+    complexity = torch.tensor([[[0.0], [0.0], [0.9], [0.0], [0.9], [0.9], [0.9]]])
+    adjusted, quorum = gate.apply_quorum_policy(complexity)
+
+    # Isolated spike is down-weighted relative to sustained high-complexity segment.
+    assert quorum[0, 2, 0] < quorum[0, 5, 0]
+    assert adjusted[0, 2, 0] < adjusted[0, 5, 0]
+
+def test_symplectic_gate_quorum_budget_limits_positions():
+    gate = SymplecticGating(
+        8,
+        quorum_mix = 1.0,
+        quorum_window = 1,
+        quorum_threshold = 0.0,
+        quorum_temperature = 1.0,
+        budget_topk_ratio = 0.25
+    )
+
+    complexity = torch.tensor([[[0.1], [0.2], [0.3], [0.4], [0.5], [0.6], [0.7], [0.8]]])
+    adjusted, quorum, budget_k = gate.apply_quorum_policy(complexity, return_budget_k = True)
+
+    assert budget_k == 2
+    assert (quorum > 0).sum().item() == 2
+    assert (adjusted > 0).sum().item() == 2
+
+def test_symplectic_gate_quorum_budget_requires_quorum_mix():
+    with pytest.raises(ValueError):
+        SymplecticGating(8, budget_topk_ratio = 0.25)

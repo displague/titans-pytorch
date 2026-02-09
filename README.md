@@ -179,6 +179,8 @@ Key optional flags in `SymplecticGating`:
 - `gate_mode`: hard straight-through gating or soft gating.
 - `top_k`, `adaptive_topk_ratio`: sparse routing controls.
 - `phase_mix`, `phase_pairs`: periodic latent phase-complexity signal.
+- `quorum_mix`, `quorum_window`, `quorum_threshold`, `quorum_temperature`: quorum-style local consensus filter on complexity.
+- `budget_topk_ratio`: optional sequence budget for quorum-selected positions.
 
 Additional optional `NeuralMemory` toggles:
 

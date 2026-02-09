@@ -4,6 +4,21 @@
 - [2026-02-08 17:38:45] Evaluate `manifold_state_keyed_paging` against threshold-step paging on long-horizon and interference tasks.
 - [2026-02-08 17:38:45] Convert threshold sweep output into documented recommended switch-rate bands.
 - [2026-02-08 17:55:14] Wire `benchmarks/check_regression.py` into CI with a checked-in rolling baseline artifact policy.
+- [2026-02-08 19:03:42] Next topic set experiment: taxonomy-informed hierarchical routing with information-budget regularization.
+- Hypothesis: combine taxonomy-style hierarchy and bounded-information routing to split coarse page decisions from fine page refinement.
+- Toggle plan: add optional two-stage page selection (`coarse_pages`, `fine_pages`, `hierarchy_mix`) behind `symplectic_gate_kwargs`/paging flags.
+- Success metrics: improved long-horizon recovery and reduced interference at fixed compute budget.
+- Failure metrics: extra routing overhead without measurable recovery/interference gains.
+
+## Research Narrative (Cross-Field Source Set)
+- Microbiology -> quorum thresholding: `https://pubmed.ncbi.nlm.nih.gov/37057353/`
+- Genetics -> transcriptional memory and gated expression persistence: `https://pubmed.ncbi.nlm.nih.gov/39029953/`
+- Chemistry -> reaction-network memory and temporal processing: `https://pubmed.ncbi.nlm.nih.gov/39058812/`
+- Taste detection -> distributed coding under task demands: `https://pubmed.ncbi.nlm.nih.gov/38631343/`
+- Odor detection -> combinatorial code remapping: `https://www.nature.com/articles/s41586-025-09053-w`
+- Taxonomy science -> hierarchy/network-informed structure: `https://journals.asm.org/doi/10.1128/mbio.02256-23`
+- Information theory -> rate/distortion/perception/semantics tradeoff: `https://doi.org/10.1016/j.jfranklin.2024.106884`
+- Economic theory -> rational inattention with bounded information budgets: `https://link.springer.com/article/10.1007/s10683-023-09803-9`
 
 ## Future Directions
 - [2026-02-08 17:23:12] Advanced next-next topic: Renormalization-Group Memory Ladder (multiscale coarse-graining + refinement).
