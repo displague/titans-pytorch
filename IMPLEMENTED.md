@@ -84,6 +84,19 @@
 - Run tag `gate_variants_v4` (CUDA, steps=12):
 - `hierarchical_route`: spiral `0.029726`, helix `0.027642`, complexity `0.1531`.
 
+- [2026-02-08 19:54:39] Implemented genetics-inspired mutation/selection search benchmark.
+- Added `benchmarks/benchmark_mutation_selection.py`.
+- Search space covers `phase_mix`, `quorum_mix`, `budget_topk_ratio`, and hierarchical routing toggles.
+- Uses population selection with mutation and elite carry-over; no runtime behavior changes to core modules.
+- Outputs:
+- `benchmarks/results/mutation_selection_latest.json`
+- `benchmarks/results/mutation_selection_history.csv`
+- Run tag `mutation_selection_v1` (CUDA, steps=8, population=6, generations=3):
+- Best fitness `0.061281`, mean loss `0.041680`, mean step `19.60 ms`.
+- Best candidate:
+- `phase_mix=0.5`, `quorum_mix=0.75`, `budget_topk_ratio=0.3`,
+- `hierarchical=False`, `quorum_window=3`, `quorum_threshold=0.2`, `quorum_temperature=0.15`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.

@@ -4,9 +4,9 @@
 - [2026-02-08 17:38:45] Evaluate `manifold_state_keyed_paging` against threshold-step paging on long-horizon and interference tasks.
 - [2026-02-08 17:38:45] Convert threshold sweep output into documented recommended switch-rate bands.
 - [2026-02-08 17:55:14] Wire `benchmarks/check_regression.py` into CI with a checked-in rolling baseline artifact policy.
-- [2026-02-08 19:29:49] Genetics-inspired mutation/selection sweep for gate hyperparameters.
-- Hypothesis: lightweight population search over gate toggles can find robust settings faster than manual sweeps.
-- Toggle plan: benchmark-time search over `phase_mix`, `quorum_mix`, `budget_topk_ratio`, and hierarchy settings; runtime defaults unchanged.
+- [2026-02-08 19:54:39] Compare mutation/selection champion against hand-designed variants on long-horizon and interference tasks.
+- Hypothesis: evolved gate configs can outperform manually curated variants under equal step/latency budgets.
+- Toggle plan: reuse mutation benchmark winner as a named preset in benchmark scripts only; runtime defaults unchanged.
 - [2026-02-08 19:29:49] Chemistry-inspired kinetics controller for memory update/decay coupling.
 - Hypothesis: reaction-rate style coupling between `adaptive_lr` and `decay_factor` can improve perturb/recovery balance.
 - Toggle plan: optional kinetics coefficient path in `NeuralMemory` (off by default).
