@@ -302,6 +302,9 @@ class NeuralMemory(Module):
         coarse_pages: int | None = None, # Optional: number of coarse routing groups
         fine_pages: int | None = None, # Optional: pages per coarse group
         hierarchy_mix: float = 1.0, # 0 = sequential fallback, 1 = fully hierarchical routing
+        kinetics_coupling = False, # Optional: chemistry-inspired coupling between adaptive lr and decay
+        kinetics_mix: float = 0.0, # Blend strength for kinetics coupling
+        kinetics_eps: float = 1e-6, # Numerical stability for kinetics normalization
         num_pages = 1, # New argument: Manifold Paging for Objective Reduction
         symplectic_page_threshold: float | None = None, # Optional override for page switch threshold
         default_model_kwargs: dict = dict(
@@ -567,9 +570,16 @@ class NeuralMemory(Module):
         self.coarse_pages = default(coarse_pages, 1)
         self.fine_pages = default(fine_pages, self.num_pages)
         self.hierarchy_mix = hierarchy_mix
+        self.kinetics_coupling = kinetics_coupling
+        self.kinetics_mix = kinetics_mix
+        self.kinetics_eps = kinetics_eps
 
         if not (0.0 <= self.hierarchy_mix <= 1.0):
             raise ValueError("hierarchy_mix must be in [0, 1].")
+        if not (0.0 <= self.kinetics_mix <= 1.0):
+            raise ValueError("kinetics_mix must be in [0, 1].")
+        if self.kinetics_eps <= 0.0:
+            raise ValueError("kinetics_eps must be > 0.")
         if self.hierarchical_paging:
             if self.num_pages <= 1:
                 raise ValueError("hierarchical_paging requires num_pages > 1.")
@@ -876,6 +886,26 @@ class NeuralMemory(Module):
                  decay_factor = rearrange(decay_factor, 'b h n 1 -> (b h) n 1')
 
 
+
+        # --- CHEMISTRY-INSPIRED KINETICS COUPLING ---
+        # Couple update and decay rates via a bounded "reaction progress" proxy.
+        # Higher update pressure pushes toward higher adaptive lr and lower decay.
+        if self.kinetics_coupling and self.kinetics_mix > 0.0:
+            adaptive_lr_chunk = rearrange(adaptive_lr, 'bh (n c u) -> bh n (c u)', c = chunk_size, u = num_updates)
+            adaptive_lr_mean = adaptive_lr_chunk.mean(dim = -1, keepdim = True)
+
+            reaction_progress = adaptive_lr_mean / (adaptive_lr_mean + decay_factor + self.kinetics_eps)
+            decay_factor = decay_factor * (1. - self.kinetics_mix * reaction_progress)
+            decay_factor = decay_factor.clamp(min = 0., max = 1.)
+
+            reaction_progress_tokens = repeat(
+                reaction_progress,
+                'bh n 1 -> bh n cu',
+                cu = chunk_size * num_updates
+            )
+            reaction_progress_tokens = rearrange(reaction_progress_tokens, 'bh n cu -> bh (n cu)')
+            adaptive_lr = adaptive_lr + self.kinetics_mix * (1. - adaptive_lr) * reaction_progress_tokens
+            adaptive_lr = adaptive_lr.clamp(min = 0.)
 
         need_layer_lr_mod = exists(self.to_layer_modulation) and num_chunks > 0
         has_momentum = exists(self.to_momentum)

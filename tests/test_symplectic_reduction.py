@@ -327,6 +327,66 @@ def test_hierarchical_paging_routes_with_coarse_and_fine_keys():
     # coarse=0 with fine=1 -> page 1 ; coarse=1 with fine=0 -> page 2
     assert state.active_page_indices.tolist() == [1, 2]
 
+def test_kinetics_coupling_modulates_adaptive_lr():
+    torch.manual_seed(0)
+    dim = 8
+    seq = torch.randn(1, 4, dim)
+
+    base = NeuralMemory(
+        dim = dim,
+        chunk_size = 2,
+        heads = 1,
+        momentum = False,
+        kinetics_coupling = False
+    )
+    coupled = NeuralMemory(
+        dim = dim,
+        chunk_size = 2,
+        heads = 1,
+        momentum = False,
+        kinetics_coupling = True,
+        kinetics_mix = 0.5
+    )
+    coupled.load_state_dict(base.state_dict(), strict = False)
+
+    base_weights = base.init_weights(batch = 1)
+    coupled_weights = coupled.init_weights(batch = 1)
+
+    _, _, (_, base_lr) = base.store_memories(seq, base_weights, return_surprises = True)
+    _, _, (_, coupled_lr) = coupled.store_memories(seq, coupled_weights, return_surprises = True)
+
+    assert coupled_lr.mean().item() > base_lr.mean().item()
+
+def test_kinetics_coupling_zero_mix_is_noop_for_adaptive_lr():
+    torch.manual_seed(0)
+    dim = 8
+    seq = torch.randn(1, 4, dim)
+
+    base = NeuralMemory(
+        dim = dim,
+        chunk_size = 2,
+        heads = 1,
+        momentum = False,
+        kinetics_coupling = False
+    )
+    noop = NeuralMemory(
+        dim = dim,
+        chunk_size = 2,
+        heads = 1,
+        momentum = False,
+        kinetics_coupling = True,
+        kinetics_mix = 0.0
+    )
+    noop.load_state_dict(base.state_dict(), strict = False)
+
+    base_weights = base.init_weights(batch = 1)
+    noop_weights = noop.init_weights(batch = 1)
+
+    _, _, (_, base_lr) = base.store_memories(seq, base_weights, return_surprises = True)
+    _, _, (_, noop_lr) = noop.store_memories(seq, noop_weights, return_surprises = True)
+
+    assert torch.allclose(base_lr, noop_lr, atol = 1e-6)
+
 
 if __name__ == "__main__":
     test_symplectic_gating_logic()

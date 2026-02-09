@@ -178,6 +178,23 @@ if __name__ == "__main__":
             ),
             mem_kwargs = {}
         ),
+        "kinetics_coupled": dict(
+            gate_kwargs = dict(
+                gated = True,
+                diag = True,
+                gate_mode = "soft",
+                phase_mix = 0.5,
+                phase_pairs = max(1, args.dim // 8),
+                quorum_mix = 0.55,
+                quorum_window = 5,
+                quorum_threshold = 0.25,
+                quorum_temperature = 0.1
+            ),
+            mem_kwargs = dict(
+                kinetics_coupling = True,
+                kinetics_mix = 0.5
+            )
+        ),
         "hierarchical_route": dict(
             gate_kwargs = dict(
                 gated = True,

@@ -189,6 +189,8 @@ Additional optional `NeuralMemory` toggles:
 - `hierarchical_paging`: enable two-stage coarse/fine page routing.
 - `coarse_pages`, `fine_pages`: coarse routing groups and pages per group (`coarse_pages * fine_pages = num_pages`).
 - `hierarchy_mix`: blend between sequential fallback (`0`) and hierarchical target routing (`1`).
+- `kinetics_coupling`: enable chemistry-inspired adaptive-lr/decay coupling.
+- `kinetics_mix`, `kinetics_eps`: coupling strength and normalization stability constants.
 
 Related research context:
 

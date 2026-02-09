@@ -97,6 +97,22 @@
 - `phase_mix=0.5`, `quorum_mix=0.75`, `budget_topk_ratio=0.3`,
 - `hierarchical=False`, `quorum_window=3`, `quorum_threshold=0.2`, `quorum_temperature=0.15`.
 
+- [2026-02-08 20:38:49] Implemented chemistry-inspired kinetics coupling in `NeuralMemory` (opt-in).
+- New constructor kwargs: `kinetics_coupling`, `kinetics_mix`, `kinetics_eps`.
+- Coupling policy:
+- derives chunk-level reaction progress from adaptive-lr/decay balance.
+- reduces decay under high reaction progress.
+- increases adaptive lr toward a bounded target under high reaction progress.
+- Baseline behavior remains unchanged by default.
+
+- [2026-02-08 20:38:49] Added kinetics tests:
+- `tests/test_symplectic_reduction.py::test_kinetics_coupling_modulates_adaptive_lr`
+- `tests/test_symplectic_reduction.py::test_kinetics_coupling_zero_mix_is_noop_for_adaptive_lr`
+
+- [2026-02-08 20:38:49] Extended gate ablation benchmark with `kinetics_coupled` variant.
+- Run tag `gate_variants_v5` (CUDA, steps=12):
+- `kinetics_coupled`: spiral `0.028904`, helix `0.029320`, complexity `0.0463`, quorum `0.1632`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -107,6 +123,9 @@
 - [2026-02-08 19:29:49] `python -m pytest -q tests/test_symplectic.py` -> `17 passed`.
 - [2026-02-08 19:29:49] `python -m pytest -q tests/test_symplectic_reduction.py` -> `6 passed`.
 - [2026-02-08 19:29:49] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
+- [2026-02-08 20:38:49] `python -m pytest -q tests/test_symplectic.py` -> `17 passed`.
+- [2026-02-08 20:38:49] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
+- [2026-02-08 20:38:49] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.
