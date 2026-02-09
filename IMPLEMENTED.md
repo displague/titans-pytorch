@@ -142,6 +142,16 @@
 - Run tag `gate_variants_v6` (CUDA, steps=12):
 - `combinatorial_codebook`: spiral `0.029904`, helix `0.030032`, codebook `0.3595`, quorum `0.5643`.
 
+- [2026-02-09 08:03:57] Added dedicated codebook calibration benchmark for multi-motif recall.
+- Added `benchmarks/benchmark_codebook_sweep.py`.
+- Sweeps `codebook_mix`, `codebook_size`, and `codebook_topk` using a multi-motif sequence with boundary-focused error.
+- Outputs:
+- `benchmarks/results/codebook_sweep_latest.json`
+- `benchmarks/results/codebook_sweep_history.csv`
+- Run tag `codebook_sweep_v1` (CUDA, steps=8):
+- Best config: `codebook_mix=0.5`, `codebook_size=16`, `codebook_topk=None`.
+- Best metrics: boundary MSE `0.009467`, total MSE `0.009267`, step `21.97 ms`, score `0.031376`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -160,6 +170,8 @@
 - [2026-02-09 00:54:38] `python -m pytest -q tests/test_symplectic.py` -> `19 passed`.
 - [2026-02-09 00:54:38] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
 - [2026-02-09 00:54:38] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
+- [2026-02-09 08:03:57] `python -m pytest -q tests/test_symplectic.py` -> `19 passed`.
+- [2026-02-09 08:03:57] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

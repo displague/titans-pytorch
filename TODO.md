@@ -13,9 +13,9 @@
 - [2026-02-08 22:57:50] Calibrate switch-budget targets (`switch_target`, `entropy_target`) for nontrivial switch-rate reduction.
 - Hypothesis: target-band tuning can lower switch-rate without regressing reconstruction quality.
 - Toggle plan: benchmark-only sweeps in `benchmark_switch_budget.py`; core runtime defaults unchanged.
-- [2026-02-09 00:54:38] Calibrate combinatorial codebook settings (`codebook_mix`, `codebook_size`, `codebook_topk`) on multi-motif recall.
-- Hypothesis: tuned codebook sparsity can improve mixture-separation robustness with manageable overhead.
-- Toggle plan: benchmark-only sweeps and champion comparison in gate-variant and long-horizon benchmarks.
+- [2026-02-09 08:03:57] Compare codebook-sweep champion against non-codebook variants on long-horizon and interference tasks.
+- Hypothesis: multi-motif winner transfers to better recovery/interference without unacceptable overhead.
+- Toggle plan: add champion preset from `benchmark_codebook_sweep.py` to ablation/long-horizon benchmarks; runtime defaults unchanged.
 
 ## Research Narrative (Cross-Field Source Set)
 - Microbiology -> quorum thresholding: `https://pubmed.ncbi.nlm.nih.gov/37057353/`
