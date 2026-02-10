@@ -304,6 +304,17 @@
 - `mean_candidate_minus_control_bpb = -0.003770`.
 - `mean_candidate_speed_ratio = 0.946965` (candidate about `5.3%` slower on average).
 
+- [2026-02-10 13:13:36] Ran expanded short-window protocol at `NumIterations=128` (2 seeds, control vs candidate).
+- Runtime profile:
+- full 4-run protocol took about `32` minutes total on single RTX 5080 laptop GPU.
+- control runs were about `442` to `447` sec; candidate runs were about `518` sec.
+- Quality/speed result:
+- `mean_candidate_minus_control_bpb = +0.076094` (candidate worse).
+- `mean_candidate_speed_ratio = 0.857753` (candidate about `14.2%` slower).
+- Interpretation:
+- micro-window gains did not transfer to this larger short-window budget.
+- candidate is currently not ready for 24h promotion without retuning.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -342,6 +353,7 @@
 - [2026-02-10 12:10:34] `python -m pytest -q tests/test_paging.py::test_objective_reduction_page_switch tests/test_paging.py` -> `1 passed`.
 - [2026-02-10 12:37:24] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -NumIterations 1 -RunTag nanochat_smoke_v2` -> `completed`.
 - [2026-02-10 12:39:31] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 1 -Seeds "1337,2026" -ApplyCandidatePatch -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_history.csv` -> `completed`.
+- [2026-02-10 13:13:10] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 128 -Seeds "1337,2026" -ApplyCandidatePatch -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_history.csv` -> `completed`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

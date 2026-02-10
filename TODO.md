@@ -1,11 +1,14 @@
 # TODO
 
 ## Active
-- [2026-02-10 12:34:48] Scale the validated short-window `nanochat` protocol from 1-2 iteration smoke to a 90-180 minute window (single GPU, 2 seeds) and confirm directional stability.
-- Hypothesis: candidate gains seen in tiny windows should remain directionally positive at larger short-horizon budgets.
-- Toggle plan: run `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1` with reduced `--NumIterations` and parse `nanochat_protocol_latest.json`; Titans defaults unchanged.
-- [2026-02-10 12:34:48] Promote best short-window `nanochat` candidate to full 24h run with checkpointed reporting.
-- Hypothesis: short-window winner should hold or degrade gracefully at full horizon when measured by val_bpb, throughput, and stability.
+- [2026-02-10 13:13:36] Extend short-window `nanochat` protocol to a true 90-180 minute budget and confirm whether regression at 128 iterations persists.
+- Hypothesis: the current candidate (`symplectic_gate_mix=0.15`, modified wd/lr) may over-regularize at longer horizons; larger short windows should expose whether this is consistent or seed-specific.
+- Toggle plan: run `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1` at roughly `--NumIterations 384` to `768` (single GPU, 2 seeds) and compare against latest summary JSON.
+- [2026-02-10 13:13:36] Retune candidate slot before any 24h promotion.
+- Hypothesis: reduced gate mix and/or optimizer retuning can recover val_bpb while preserving or limiting throughput cost.
+- Toggle plan: keep baseline control fixed and sweep candidate-only flags in the external harness (`--symplectic-gate-mix`, `--weight-decay`, `--matrix-lr`), no Titans default changes.
+- [2026-02-10 13:13:36] Promote a non-regressing short-window winner to full 24h run with checkpointed reporting.
+- Hypothesis: only candidates that beat control on both `val_bpb` and acceptable speed ratio in short windows should enter the 24h budget.
 - Toggle plan: run only external harness configs; no change to Titans runtime defaults.
 
 ## Research Narrative (Cross-Field Source Set)
