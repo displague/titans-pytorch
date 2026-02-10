@@ -27,10 +27,12 @@ if ((Test-Path $gptPath) -and (Test-Path $trainPath)) {
     $hasGateConfig = Select-String -Path $gptPath -Pattern "symplectic_gate_enabled" -Quiet
     $hasTokenGateFn = Select-String -Path $gptPath -Pattern "def symplectic_token_gate" -Quiet
     $hasOddLayerConfig = Select-String -Path $gptPath -Pattern "symplectic_gate_odd_layers_only" -Quiet
+    $hasScheduleConfig = Select-String -Path $gptPath -Pattern "symplectic_gate_start_iter" -Quiet
     $hasTrainFlag = Select-String -Path $trainPath -Pattern "--symplectic-gate-enabled" -Quiet
     $hasOddLayerFlag = Select-String -Path $trainPath -Pattern "--symplectic-gate-odd-layers-only" -Quiet
+    $hasScheduleFlag = Select-String -Path $trainPath -Pattern "--symplectic-gate-start-iter" -Quiet
 
-    $hasCurrentPatch = $hasGateConfig -and $hasTokenGateFn -and $hasOddLayerConfig -and $hasTrainFlag -and $hasOddLayerFlag
+    $hasCurrentPatch = $hasGateConfig -and $hasTokenGateFn -and $hasOddLayerConfig -and $hasScheduleConfig -and $hasTrainFlag -and $hasOddLayerFlag -and $hasScheduleFlag
     $hasLegacyPatch = $hasGateConfig -and $hasTrainFlag -and !$hasCurrentPatch
 
     if ($hasCurrentPatch -and -not $ForceReapply) {

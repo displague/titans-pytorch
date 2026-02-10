@@ -5,6 +5,8 @@ param(
     [switch]$EnableCandidateGate,
     [double]$CandidateMix = 0.15,
     [switch]$CandidateOddLayersOnly,
+    [int]$CandidateGateStartIter = 0,
+    [int]$CandidateGateRampIters = 0,
     [int]$Depth = 12,
     [int]$MaxSeqLen = 512,
     [int]$DeviceBatchSize = 1,
@@ -87,6 +89,13 @@ try {
                 throw "Odd-layer candidate flag is not available in nanochat. Refresh patch with apply_candidate_patch.ps1."
             }
         }
+        if ($CandidateGateStartIter -gt 0 -or $CandidateGateRampIters -gt 0) {
+            $hasStartFlag = Select-String -Path $baseTrainPath -Pattern "--symplectic-gate-start-iter" -Quiet
+            $hasRampFlag = Select-String -Path $baseTrainPath -Pattern "--symplectic-gate-ramp-iters" -Quiet
+            if (!$hasStartFlag -or !$hasRampFlag) {
+                throw "Gate schedule flags are not available in nanochat. Refresh patch with apply_candidate_patch.ps1."
+            }
+        }
     }
 
     $env:OMP_NUM_THREADS = "1"
@@ -121,6 +130,12 @@ try {
         )
         if ($CandidateOddLayersOnly) {
             $trainArgs += "--symplectic-gate-odd-layers-only"
+        }
+        if ($CandidateGateStartIter -gt 0) {
+            $trainArgs += "--symplectic-gate-start-iter=$CandidateGateStartIter"
+        }
+        if ($CandidateGateRampIters -gt 0) {
+            $trainArgs += "--symplectic-gate-ramp-iters=$CandidateGateRampIters"
         }
     }
 

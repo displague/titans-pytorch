@@ -14,6 +14,8 @@ param(
     [bool]$DisableTorchCompile = $true,
     [double]$CandidateGateMix = 0.15,
     [switch]$CandidateOddLayersOnly,
+    [int]$CandidateGateStartIter = 0,
+    [int]$CandidateGateRampIters = 0,
     [double]$CandidateWeightDecay = 0.18,
     [double]$CandidateMatrixLr = 0.018,
     [string]$RunLabel = "",
@@ -92,6 +94,12 @@ if ($CandidateWeightDecay -le 0) {
 if ($CandidateMatrixLr -le 0) {
     throw "CandidateMatrixLr must be > 0."
 }
+if ($CandidateGateStartIter -lt 0) {
+    throw "CandidateGateStartIter must be >= 0."
+}
+if ($CandidateGateRampIters -lt 0) {
+    throw "CandidateGateRampIters must be >= 0."
+}
 
 Push-Location $NanochatDir
 try {
@@ -151,6 +159,13 @@ try {
             throw "Odd-layer candidate flag is not available in nanochat. Refresh patch with apply_candidate_patch.ps1."
         }
     }
+    if ($CandidateGateStartIter -gt 0 -or $CandidateGateRampIters -gt 0) {
+        $hasStartFlag = Select-String -Path $baseTrainPath -Pattern "--symplectic-gate-start-iter" -Quiet
+        $hasRampFlag = Select-String -Path $baseTrainPath -Pattern "--symplectic-gate-ramp-iters" -Quiet
+        if (!$hasStartFlag -or !$hasRampFlag) {
+            throw "Gate schedule flags are not available in nanochat. Refresh patch with apply_candidate_patch.ps1."
+        }
+    }
 
     $env:OMP_NUM_THREADS = "1"
     $env:PYTHONUTF8 = "1"
@@ -170,6 +185,12 @@ try {
     )
     if ($CandidateOddLayersOnly) {
         $candidateExtra += "--symplectic-gate-odd-layers-only"
+    }
+    if ($CandidateGateStartIter -gt 0) {
+        $candidateExtra += "--symplectic-gate-start-iter=$CandidateGateStartIter"
+    }
+    if ($CandidateGateRampIters -gt 0) {
+        $candidateExtra += "--symplectic-gate-ramp-iters=$CandidateGateRampIters"
     }
 
     $recipes = @(
@@ -301,6 +322,8 @@ try {
             candidate_patch_applied = [bool]$ApplyCandidatePatch
             candidate_gate_mix = $CandidateGateMix
             candidate_odd_layers_only = [bool]$CandidateOddLayersOnly
+            candidate_gate_start_iter = $CandidateGateStartIter
+            candidate_gate_ramp_iters = $CandidateGateRampIters
             candidate_weight_decay = $CandidateWeightDecay
             candidate_matrix_lr = $CandidateMatrixLr
             run_label = $RunLabel
