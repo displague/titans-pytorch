@@ -208,6 +208,15 @@
 - `mutation_champion` score `0.108531`.
 - Summary: mutation champion did not win; hand-designed quorum budget performed better on the transfer score.
 
+- [2026-02-10 08:05:25] Added kinetics coupling sweep benchmark on long-horizon and interference tasks.
+- Added `benchmarks/benchmark_kinetics_sweep.py`.
+- Outputs:
+- `benchmarks/results/kinetics_sweep_latest.json`
+- `benchmarks/results/kinetics_sweep_history.csv`
+- Run tag `kinetics_sweep_v1` (CUDA):
+- Best `kinetics_mix=0.25` with transfer score `0.101662`.
+- Baseline (`kinetics_mix=0.00`) score `0.116968`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.

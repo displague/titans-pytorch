@@ -1,9 +1,6 @@
 # TODO
 
 ## Active
-- [2026-02-08 20:38:49] Calibrate kinetics-coupled configs on long-horizon recovery and interference benchmarks.
-- Hypothesis: tuned `kinetics_mix` with quorum/phase options improves recovery without excessive switch suppression.
-- Toggle plan: benchmark-only sweep over `kinetics_mix` and compare against mutation-selection champion; runtime defaults unchanged.
 - [2026-02-08 22:57:50] Calibrate switch-budget targets (`switch_target`, `entropy_target`) for nontrivial switch-rate reduction.
 - Hypothesis: target-band tuning can lower switch-rate without regressing reconstruction quality.
 - Toggle plan: benchmark-only sweeps in `benchmark_switch_budget.py`; core runtime defaults unchanged.
