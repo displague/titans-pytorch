@@ -217,6 +217,15 @@
 - Best `kinetics_mix=0.25` with transfer score `0.101662`.
 - Baseline (`kinetics_mix=0.00`) score `0.116968`.
 
+- [2026-02-10 08:07:44] Added switch-budget target sweep for nontrivial switch-rate reduction.
+- Added `benchmarks/benchmark_switch_budget_sweep.py`.
+- Outputs:
+- `benchmarks/results/switch_budget_sweep_latest.json`
+- `benchmarks/results/switch_budget_sweep_history.csv`
+- Run tag `switch_budget_sweep_v1` (CUDA):
+- Best `switch_target=0.10`, `entropy_target=0.60`, score `0.504275`.
+- Observation: switch rates stayed ~`1.0` across targets in this sweep, so nontrivial reduction was not achieved.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
