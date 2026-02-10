@@ -152,6 +152,24 @@
 - Best config: `codebook_mix=0.5`, `codebook_size=16`, `codebook_topk=None`.
 - Best metrics: boundary MSE `0.009467`, total MSE `0.009267`, step `21.97 ms`, score `0.031376`.
 
+- [2026-02-10 06:45:13] Added transfer benchmark for champion-vs-non-codebook comparisons on long-horizon and interference tasks.
+- Added `benchmarks/benchmark_codebook_transfer.py`.
+- Variants compared under identical settings:
+- `baseline`
+- `symplectic_paging`
+- `phase_quorum_paging`
+- `codebook_champion_paging` (`codebook_mix=0.5`, `codebook_size=16`, `codebook_topk=None`)
+- Outputs:
+- `benchmarks/results/codebook_transfer_latest.json`
+- `benchmarks/results/codebook_transfer_history.csv`
+- Run tag `codebook_transfer_v1` (CUDA):
+- Winner: `codebook_champion_paging` with transfer score `0.100389`.
+- Relative to `phase_quorum_paging`, champion improved:
+- long-horizon clean post-MSE from `0.004147` to `0.003696` (`+10.87%`).
+- long-horizon phase error from `0.058091` to `0.051676` (`+11.04%`).
+- interference post-B task-A loss from `0.008036` to `0.007104` (`+11.60%`).
+- aggregate transfer score from `0.105256` to `0.100389` (`+4.62%`).
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -172,6 +190,8 @@
 - [2026-02-09 00:54:38] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
 - [2026-02-09 08:03:57] `python -m pytest -q tests/test_symplectic.py` -> `19 passed`.
 - [2026-02-09 08:03:57] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
+- [2026-02-10 06:45:13] `python -m pytest -q tests/test_symplectic.py` -> `19 passed`.
+- [2026-02-10 06:45:13] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

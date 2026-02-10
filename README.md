@@ -214,6 +214,7 @@ python benchmarks/benchmark_threshold_sweep.py --tag threshold_sweep --output-js
 python benchmarks/benchmark_mutation_selection.py --tag mutation_selection --output-json benchmarks/results/mutation_selection_latest.json
 python benchmarks/benchmark_switch_budget.py --tag switch_budget --output-json benchmarks/results/switch_budget_latest.json
 python benchmarks/benchmark_codebook_sweep.py --tag codebook_sweep --output-json benchmarks/results/codebook_sweep_latest.json
+python benchmarks/benchmark_codebook_transfer.py --tag codebook_transfer --output-json benchmarks/results/codebook_transfer_latest.json
 python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_baseline.json --latest benchmarks/results/symplectic_latest.json
 ```
 

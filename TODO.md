@@ -13,9 +13,9 @@
 - [2026-02-08 22:57:50] Calibrate switch-budget targets (`switch_target`, `entropy_target`) for nontrivial switch-rate reduction.
 - Hypothesis: target-band tuning can lower switch-rate without regressing reconstruction quality.
 - Toggle plan: benchmark-only sweeps in `benchmark_switch_budget.py`; core runtime defaults unchanged.
-- [2026-02-09 08:03:57] Compare codebook-sweep champion against non-codebook variants on long-horizon and interference tasks.
-- Hypothesis: multi-motif winner transfers to better recovery/interference without unacceptable overhead.
-- Toggle plan: add champion preset from `benchmark_codebook_sweep.py` to ablation/long-horizon benchmarks; runtime defaults unchanged.
+- [2026-02-10 06:45:13] Fold the `codebook_champion_paging` transfer winner into rolling regression checks.
+- Hypothesis: guarding long-horizon/interference champion metrics prevents accidental regressions while preserving optional runtime behavior.
+- Toggle plan: benchmark-only and CI-path changes (`benchmark_codebook_transfer.py` + `check_regression.py` extension); runtime defaults unchanged.
 
 ## Research Narrative (Cross-Field Source Set)
 - Microbiology -> quorum thresholding: `https://pubmed.ncbi.nlm.nih.gov/37057353/`
