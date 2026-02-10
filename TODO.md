@@ -1,14 +1,13 @@
 # TODO
 
 ## Active
-- [2026-02-10 13:13:36] Extend short-window `nanochat` protocol to a true 90-180 minute budget and confirm whether regression at 128 iterations persists.
-- Hypothesis: the current candidate (`symplectic_gate_mix=0.15`, modified wd/lr) may over-regularize at longer horizons; larger short windows should expose whether this is consistent or seed-specific.
-- Toggle plan: run `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1` at roughly `--NumIterations 384` to `768` (single GPU, 2 seeds) and compare against latest summary JSON.
-- [2026-02-10 13:13:36] Retune candidate slot before any 24h promotion.
-- Hypothesis: reduced gate mix and/or optimizer retuning can recover val_bpb while preserving or limiting throughput cost.
-- Toggle plan: keep baseline control fixed and sweep candidate-only flags in the external harness (`--symplectic-gate-mix`, `--weight-decay`, `--matrix-lr`), no Titans default changes.
-- [2026-02-10 13:31:20] Interim retune result (`mix005_n64`): still regressed (`+0.003640` bpb, speed ratio `0.8588`), so continue sweep toward smaller mix and possibly schedule-only changes.
-- [2026-02-10 13:13:36] Promote a non-regressing short-window winner to full 24h run with checkpointed reporting.
+- [2026-02-10 15:07:39] Continue retuning candidate slot after confirmed regression at true short-window scale.
+- Hypothesis: current token-complexity gate integration may need smaller mix or structural changes (not just optimizer tuning) to avoid quality loss.
+- Toggle plan: keep baseline control fixed and sweep candidate-only flags in external harness (`--symplectic-gate-mix` near `0.01` and `0.02`, plus conservative optimizer settings), no Titans default changes.
+- [2026-02-10 15:07:39] Add at least one structurally distinct candidate recipe beyond scalar mix tuning.
+- Hypothesis: layer-local gating placement or schedule-based activation may preserve speed/quality trade-offs better than constant full-depth gating.
+- Toggle plan: add one new optional candidate recipe slot in the transfer harness and benchmark it under `NumIterations=64` and then `128`.
+- [2026-02-10 15:07:39] Promote a non-regressing short-window winner to full 24h run with checkpointed reporting.
 - Hypothesis: only candidates that beat control on both `val_bpb` and acceptable speed ratio in short windows should enter the 24h budget.
 - Toggle plan: run only external harness configs; no change to Titans runtime defaults.
 
