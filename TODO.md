@@ -1,7 +1,6 @@
 # TODO
 
 ## Active
-- [2026-02-08 17:55:14] Wire `benchmarks/check_regression.py` into CI with a checked-in rolling baseline artifact policy.
 - [2026-02-08 19:54:39] Compare mutation/selection champion against hand-designed variants on long-horizon and interference tasks.
 - Hypothesis: evolved gate configs can outperform manually curated variants under equal step/latency budgets.
 - Toggle plan: reuse mutation benchmark winner as a named preset in benchmark scripts only; runtime defaults unchanged.

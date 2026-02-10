@@ -189,6 +189,12 @@
 - Moderate: `0.20`.
 - Low or off: `0.35` and above.
 
+- [2026-02-10 07:57:32] Wired regression guard into CI with rolling baseline artifacts.
+- Added baseline files:
+- `benchmarks/results/symplectic_baseline.json`
+- `benchmarks/results/codebook_transfer_baseline.json`
+- Updated `.github/workflows/test.yaml` to run lightweight benchmark variants and compare against baselines via `benchmarks/check_regression.py`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.

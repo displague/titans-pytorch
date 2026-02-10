@@ -1,0 +1,132 @@
+{
+  "timestamp_utc": "2026-02-10T11:44:52.522038+00:00",
+  "tag": "codebook_transfer_v1",
+  "device": "cuda",
+  "config": {
+    "dim": 128,
+    "seq_len": 160,
+    "batch_size": 4,
+    "chunk_size": 32,
+    "pages": 2,
+    "interference_steps": 12,
+    "interference_eval_iters": 8,
+    "long_seq_len": 512,
+    "long_warmup_steps": 12,
+    "long_perturb_steps": 8,
+    "long_recovery_steps": 8,
+    "latency_weight": 0.001
+  },
+  "variants": {
+    "baseline": {
+      "description": "No symplectic gating",
+      "long_horizon": {
+        "clean_mse_pre": 0.24200940132141113,
+        "perturb_mse": 0.16717195510864258,
+        "clean_mse_post": 0.12329608201980591,
+        "phase_err_pre": 0.6021478176116943,
+        "phase_err_post": 0.3446124196052551,
+        "mse_recovery_gain": 0.11871331930160522,
+        "phase_recovery_gain": 0.2575353980064392,
+        "step_ms": 35.98366785653135
+      },
+      "interference": {
+        "pre_a_loss": 0.28839847445487976,
+        "post_a_loss": 0.24862542748451233,
+        "post_b_loss": 0.20519983768463135,
+        "forgetting_delta": -0.03977304697036743,
+        "train_a_tail": 0.42255952060222624,
+        "train_b_tail": 0.25454078912734984,
+        "step_ms": 16.991820832724137
+      },
+      "transfer_score": 0.5972032079962013
+    },
+    "symplectic_paging": {
+      "description": "Symplectic gating with paging defaults",
+      "long_horizon": {
+        "clean_mse_pre": 0.012102117761969566,
+        "perturb_mse": 0.006960763595998287,
+        "clean_mse_post": 0.004621089436113834,
+        "phase_err_pre": 0.08648491650819778,
+        "phase_err_post": 0.06602819263935089,
+        "mse_recovery_gain": 0.007481028325855732,
+        "phase_recovery_gain": 0.020456723868846893,
+        "step_ms": 42.596757142746355
+      },
+      "interference": {
+        "pre_a_loss": 0.009881498292088509,
+        "post_a_loss": 0.007871019653975964,
+        "post_b_loss": 0.006197596434503794,
+        "forgetting_delta": -0.002010478638112545,
+        "train_a_tail": 0.019930536020547153,
+        "train_b_tail": 0.008559702802449465,
+        "step_ms": 20.88504583298345
+      },
+      "transfer_score": 0.10898800838549505
+    },
+    "phase_quorum_paging": {
+      "description": "Phase+quorum signal without codebook",
+      "long_horizon": {
+        "clean_mse_pre": 0.010804925113916397,
+        "perturb_mse": 0.006129521410912275,
+        "clean_mse_post": 0.004147250670939684,
+        "phase_err_pre": 0.09467215836048126,
+        "phase_err_post": 0.058090802282094955,
+        "mse_recovery_gain": 0.006657674442976713,
+        "phase_recovery_gain": 0.03658135607838631,
+        "step_ms": 41.55199285742128
+      },
+      "interference": {
+        "pre_a_loss": 0.010234071873128414,
+        "post_a_loss": 0.008035609498620033,
+        "post_b_loss": 0.006005092989653349,
+        "forgetting_delta": -0.002198462374508381,
+        "train_a_tail": 0.021036862395703793,
+        "train_b_tail": 0.0083121535833925,
+        "step_ms": 22.475783333599487
+      },
+      "transfer_score": 0.10525603750162796
+    },
+    "codebook_champion_paging": {
+      "description": "Codebook sweep champion transfer candidate",
+      "long_horizon": {
+        "clean_mse_pre": 0.009118030779063702,
+        "perturb_mse": 0.005494509823620319,
+        "clean_mse_post": 0.0036960819270461798,
+        "phase_err_pre": 0.07465396821498871,
+        "phase_err_post": 0.05167572572827339,
+        "mse_recovery_gain": 0.005421948852017522,
+        "phase_recovery_gain": 0.022978242486715317,
+        "step_ms": 40.65899285654138
+      },
+      "interference": {
+        "pre_a_loss": 0.00852073635905981,
+        "post_a_loss": 0.007103638257831335,
+        "post_b_loss": 0.005327720660716295,
+        "forgetting_delta": -0.0014170981012284756,
+        "train_a_tail": 0.016873733885586262,
+        "train_b_tail": 0.007771129906177521,
+        "step_ms": 23.092608334991382
+      },
+      "transfer_score": 0.10038918424054698
+    }
+  },
+  "ranking": [
+    "codebook_champion_paging",
+    "phase_quorum_paging",
+    "symplectic_paging",
+    "baseline"
+  ],
+  "winner": "codebook_champion_paging",
+  "champion_vs_phase_quorum": {
+    "long_clean_mse_post_pct": 10.87874304427512,
+    "long_phase_err_post_pct": 11.04318808108259,
+    "interference_post_a_pct": 11.598015569929661,
+    "transfer_score_pct": 4.623823370707553
+  },
+  "champion_vs_symplectic": {
+    "long_clean_mse_post_pct": 20.017087352577875,
+    "long_phase_err_post_pct": 21.73687683603783,
+    "interference_post_a_pct": 9.749453436531489,
+    "transfer_score_pct": 7.889697474362206
+  }
+}
