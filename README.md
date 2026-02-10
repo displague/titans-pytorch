@@ -246,10 +246,8 @@ powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/setup_nan
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 30000 -Seeds "1337,2026"
-# optional retune sweep example
-powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_history.csv
-# structural recipe: odd layers only
-powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateOddLayersOnly -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel odd_mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n64_history.csv
+# current promoted screening recipe: odd layers + scheduled activation
+powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateOddLayersOnly -CandidateGateStartIter 16 -CandidateGateRampIters 32 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel odd_sched16r32_mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_n64_history.csv
 ```
 
 Protocol summary artifacts:
@@ -257,11 +255,13 @@ Protocol summary artifacts:
 - `experiments/nanochat_transfer/results/nanochat_protocol_history.csv`
 - Includes per-run `val_bpb`, `duration_sec`, `avg_tok_per_sec`, plus candidate-vs-control deltas.
 
-Latest short-window checkpoints (2 seeds, RTX 5080 laptop GPU):
+Latest screened checkpoints (2 seeds, RTX 5080 laptop GPU):
 - Full-depth candidate (`mix005_n64`): `mean_candidate_minus_control_bpb=+0.003640`, `mean_candidate_speed_ratio=0.858812`.
-- Odd-layer candidate (`odd_mix005_n64`): `mean_candidate_minus_control_bpb=+0.002307`, `mean_candidate_speed_ratio=0.918117`.
-- Odd-layer candidate (`odd_mix005_n128`): `mean_candidate_minus_control_bpb=+0.038428`, `mean_candidate_speed_ratio=0.911419`.
-- Interpretation: odd-layer routing improves throughput and narrows quality gap, but does not yet clear promotion criteria at `n128`.
+- Odd-layer only (`odd_mix005_n128`): `mean_candidate_minus_control_bpb=+0.038428`, `mean_candidate_speed_ratio=0.911419`.
+- Odd-layer + schedule (`odd_sched16r32_mix005_n64`): `mean_candidate_minus_control_bpb=-0.000145`, `mean_candidate_speed_ratio=0.912058`.
+- Odd-layer + schedule (`odd_sched16r32_mix005_n128`): `mean_candidate_minus_control_bpb=-0.001091`, `mean_candidate_speed_ratio=0.917453`.
+- Odd-layer + schedule (`odd_sched16r32_mix005_n384`): `mean_candidate_minus_control_bpb=-0.000097`, `mean_candidate_speed_ratio=0.911722`.
+- Interpretation: scheduled activation is the first candidate family that stayed non-regressing across `n64`, `n128`, and `n384`, and is ready for full 24h promotion testing.
 
 ## Experiments
 

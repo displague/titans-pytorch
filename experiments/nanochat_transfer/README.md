@@ -11,7 +11,7 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
 - `setup_nanochat.ps1`: clone/update `nanochat` and print pinned commit info.
 - `run_nanochat_16gb_smoke.ps1`: short single-GPU fit/smoke run recipe for 16GB cards.
 - `run_nanochat_24h_protocol.ps1`: repeatable control/candidate protocol with seeds.
-  - Supports candidate tuning flags: `-CandidateGateMix`, `-CandidateOddLayersOnly`, `-CandidateWeightDecay`, `-CandidateMatrixLr`, and `-RunLabel`.
+  - Supports candidate tuning flags: `-CandidateGateMix`, `-CandidateOddLayersOnly`, `-CandidateGateStartIter`, `-CandidateGateRampIters`, `-CandidateWeightDecay`, `-CandidateMatrixLr`, and `-RunLabel`.
 - `apply_candidate_patch.ps1`: applies optional Titans-inspired patch to `nanochat`.
 - `revert_candidate_patch.ps1`: reverts the optional patch.
 
@@ -22,6 +22,7 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
 - Use `--window-pattern L` on non-FA3 GPUs (default in both harness scripts).
 - `run_nanochat_16gb_smoke.ps1` and `run_nanochat_24h_protocol.ps1` default to `DisableTorchCompile=true` to avoid Triton dependency failures.
 - Increase only one pressure knob at a time (depth, seq len, or device batch size).
+- Avoid concurrent GPU-heavy jobs (pytest + protocol/benchmark) to prevent contention artifacts.
 
 ## Suggested Sequence
 1. Run setup:
@@ -30,6 +31,7 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1`
    - Candidate smoke: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -ApplyCandidatePatch -EnableCandidateGate -CandidateMix 0.15`
    - Odd-layer smoke: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -ApplyCandidatePatch -EnableCandidateGate -CandidateMix 0.05 -CandidateOddLayersOnly`
+   - Scheduled odd-layer smoke: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -ApplyCandidatePatch -EnableCandidateGate -CandidateMix 0.05 -CandidateOddLayersOnly -CandidateGateStartIter 16 -CandidateGateRampIters 32`
 3. Apply optional candidate patch:
    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1`
    - Force refresh patch revision: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1 -ForceReapply`
@@ -37,6 +39,7 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 30000 -Seeds "1337,2026"`
    - Example retune run: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_history.csv`
    - Example structural run (odd layers only): `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateOddLayersOnly -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel odd_mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n64_history.csv`
+   - Example scheduled structural run (current promoted candidate): `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 128 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateOddLayersOnly -CandidateGateStartIter 16 -CandidateGateRampIters 32 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel odd_sched16r32_mix005_n128 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_n128_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_n128_history.csv`
    - Summary output:
    - `experiments/nanochat_transfer/results/nanochat_protocol_latest.json`
    - `experiments/nanochat_transfer/results/nanochat_protocol_history.csv`
@@ -49,6 +52,8 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
   - `--symplectic-gate-mix`
   - `--symplectic-gate-eps`
   - `--symplectic-gate-odd-layers-only`
+  - `--symplectic-gate-start-iter`
+  - `--symplectic-gate-ramp-iters`
 - Implements tokenwise complexity gating in `nanochat/gpt.py` block updates.
 - Defaults are neutral; behavior is unchanged unless flags are enabled.
 
@@ -57,3 +62,4 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
 - Candidate slots in `run_nanochat_24h_protocol.ps1` are intentionally easy to edit as transfer patches mature.
 - Single-GPU protocol runs use `python -m scripts.base_train` (not distributed launch) for Windows compatibility.
 - If tokenizer artifacts are missing, both run scripts auto-run dataset/tokenizer prep by default.
+- Latest promoted screening recipe (`odd_sched16r32_mix005`) remained non-regressing at `n64`, `n128`, and `n384` with speed ratios around `0.91` to `0.92`.

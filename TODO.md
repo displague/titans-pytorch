@@ -1,17 +1,23 @@
 # TODO
 
 ## Active
-- [2026-02-10 16:01:16] Continue retuning candidate slot after odd-layer structural probe.
-- Evidence: odd-layer candidate at `n64` improved over full-depth candidate (`mean_candidate_minus_control_bpb`: `+0.002307` vs `+0.003640`, `mean_candidate_speed_ratio`: `0.918` vs `0.859`), but at `n128` still regressed (`+0.038428`, speed `0.911`).
-- Hypothesis: schedule-based gate activation (warmup/ramp) can preserve throughput gains while reducing quality penalty at longer windows.
-- Toggle plan: add candidate-only schedule knobs in the external `nanochat` patch and sweep `--symplectic-gate-mix` in `0.01`, `0.02`, and `0.05` with odd-layer mode enabled.
+- [2026-02-10 18:28:36] Promote the scheduled odd-layer candidate to a full 24h protocol run.
+- Evidence: `odd_sched16r32_mix005` remained non-regressing at all screened windows:
+- `n64`: `mean_candidate_minus_control_bpb=-0.000145`, `mean_candidate_speed_ratio=0.912058`
+- `n128`: `mean_candidate_minus_control_bpb=-0.001091`, `mean_candidate_speed_ratio=0.917453`
+- `n384`: `mean_candidate_minus_control_bpb=-0.000097`, `mean_candidate_speed_ratio=0.911722`
+- Hypothesis: delayed/ramped gate activation is the first candidate robust enough for long-horizon promotion.
+- Toggle plan: run `NumIterations=30000` with `CandidateOddLayersOnly`, `CandidateGateStartIter=16`, `CandidateGateRampIters=32`, fixed seeds, and structured JSON/CSV tracking.
+- [2026-02-10 18:28:36] Formalize promotion thresholds for quality vs throughput.
+- Hypothesis: implicit thresholds are slowing iteration and causing ambiguity when quality improves but speed drops.
+- Toggle plan: codify an explicit `candidate_speed_ratio` floor (for example `>=0.90`) alongside `mean_candidate_minus_control_bpb <= 0`, and wire checks into docs/regression utilities.
 - [2026-02-10 16:01:16] Re-run and stabilize mutation-transfer ranking under isolated GPU load.
-- Evidence: clean rerun `mutation_transfer_v4` promoted `mutation_champion` (`0.105628`) over `quorum_budget_paging` (`0.108259`), reversing prior contention-affected ranking.
+- Evidence: isolated reruns are still split:
+- `mutation_transfer_v4`: winner `mutation_champion` (`0.105628`) vs quorum budget (`0.108259`)
+- `mutation_transfer_v5`: winner `mutation_champion` (`0.108445`) vs quorum budget (`0.109181`)
+- `mutation_transfer_v6`: winner `quorum_budget_paging` (`0.104785`) vs mutation champion (`0.106363`)
 - Hypothesis: winner ordering can flip under GPU contention and requires repeatability checks before champion promotion.
-- Toggle plan: execute two additional tagged reruns and require stable winner ordering (or <1% score tie) before updating the default "champion" narrative.
-- [2026-02-10 15:07:39] Promote a non-regressing short-window winner to full 24h run with checkpointed reporting.
-- Hypothesis: only candidates that beat control on both `val_bpb` and acceptable speed ratio in short windows should enter the 24h budget.
-- Toggle plan: run only external harness configs; no change to Titans runtime defaults.
+- Toggle plan: execute additional tagged reruns and require either stable winner ordering or a <1% score tie band before updating the default "champion" narrative.
 
 ## Research Narrative (Cross-Field Source Set)
 - Microbiology -> quorum thresholding: `https://pubmed.ncbi.nlm.nih.gov/37057353/`
