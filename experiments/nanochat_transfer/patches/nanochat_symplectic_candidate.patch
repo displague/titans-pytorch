@@ -1,8 +1,8 @@
-﻿diff --git a/nanochat/gpt.py b/nanochat/gpt.py
-index 208acd1..56b7681 100644
+diff --git a/nanochat/gpt.py b/nanochat/gpt.py
+index 208acd1..5dd5bb9 100644
 --- a/nanochat/gpt.py
 +++ b/nanochat/gpt.py
-@@ -37,6 +37,10 @@ class GPTConfig:
+@@ -37,6 +37,11 @@ class GPTConfig:
      # Characters: L=long (full context), S=short (half context)
      # Examples: "L"=all full context, "SL"=alternating, "SSL"=two short then one long
      window_pattern: str = "SSSL"
@@ -10,10 +10,11 @@ index 208acd1..56b7681 100644
 +    symplectic_gate_enabled: bool = False
 +    symplectic_gate_mix: float = 0.0
 +    symplectic_gate_eps: float = 1e-6
++    symplectic_gate_odd_layers_only: bool = False
  
  
  def norm(x):
-@@ -56,6 +60,25 @@ def apply_rotary_emb(x, cos, sin):
+@@ -56,6 +61,25 @@ def apply_rotary_emb(x, cos, sin):
      y2 = x1 * (-sin) + x2 * cos
      return torch.cat([y1, y2], 3)
  
@@ -39,13 +40,17 @@ index 208acd1..56b7681 100644
  class CausalSelfAttention(nn.Module):
      def __init__(self, config, layer_idx):
          super().__init__()
-@@ -136,10 +159,23 @@ class Block(nn.Module):
+@@ -134,12 +158,30 @@ class MLP(nn.Module):
+ class Block(nn.Module):
+     def __init__(self, config, layer_idx):
          super().__init__()
++        self.layer_idx = layer_idx
          self.attn = CausalSelfAttention(config, layer_idx)
          self.mlp = MLP(config)
 +        self.symplectic_gate_enabled = config.symplectic_gate_enabled
 +        self.symplectic_gate_mix = config.symplectic_gate_mix
 +        self.symplectic_gate_eps = config.symplectic_gate_eps
++        self.symplectic_gate_odd_layers_only = config.symplectic_gate_odd_layers_only
  
      def forward(self, x, ve, cos_sin, window_size, kv_cache):
 -        x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache)
@@ -54,7 +59,10 @@ index 208acd1..56b7681 100644
 +        attn_out = self.attn(x_norm, ve, cos_sin, window_size, kv_cache)
 +        mlp_out = self.mlp(x_norm)
 +
-+        if self.symplectic_gate_enabled and self.symplectic_gate_mix > 0.0:
++        use_gate = self.symplectic_gate_enabled and self.symplectic_gate_mix > 0.0
++        if use_gate and self.symplectic_gate_odd_layers_only:
++            use_gate = (self.layer_idx % 2) == 1
++        if use_gate:
 +            gate = symplectic_token_gate(x_norm, mix = self.symplectic_gate_mix, eps = self.symplectic_gate_eps)
 +            if gate is not None:
 +                attn_out = attn_out * gate
@@ -66,20 +74,21 @@ index 208acd1..56b7681 100644
  
  
 diff --git a/scripts/base_train.py b/scripts/base_train.py
-index ccf35e6..a2d4aad 100644
+index ccf35e6..64819a0 100644
 --- a/scripts/base_train.py
 +++ b/scripts/base_train.py
-@@ -51,6 +51,9 @@ parser.add_argument("--aspect-ratio", type=int, default=64, help="model_dim = de
+@@ -51,6 +51,10 @@ parser.add_argument("--aspect-ratio", type=int, default=64, help="model_dim = de
  parser.add_argument("--head-dim", type=int, default=128, help="target head dimension for attention")
  parser.add_argument("--max-seq-len", type=int, default=2048, help="max context length")
  parser.add_argument("--window-pattern", type=str, default="SSSL", help="sliding window pattern tiled across layers: L=full, S=half context (e.g. 'SSL')")
 +parser.add_argument("--symplectic-gate-enabled", action="store_true", help="enable optional Titans-inspired token complexity gate")
 +parser.add_argument("--symplectic-gate-mix", type=float, default=0.0, help="mix for token complexity gate in [0,1]")
 +parser.add_argument("--symplectic-gate-eps", type=float, default=1e-6, help="epsilon for token complexity gate stability")
++parser.add_argument("--symplectic-gate-odd-layers-only", action="store_true", help="apply token complexity gate only on odd-index transformer layers")
  # Training horizon (only one used, in order of precedence)
  parser.add_argument("--num-iterations", type=int, default=-1, help="explicit number of optimization steps (-1 = disable)")
  parser.add_argument("--target-flops", type=float, default=-1.0, help="calculate num_iterations to reach target_flops (-1 = disable)")
-@@ -80,6 +83,9 @@ parser.add_argument("--save-every", type=int, default=-1, help="save checkpoints
+@@ -80,6 +84,9 @@ parser.add_argument("--save-every", type=int, default=-1, help="save checkpoints
  parser.add_argument("--model-tag", type=str, default=None, help="override model tag for checkpoint directory name")
  args = parser.parse_args()
  user_config = vars(args).copy()  # for logging
@@ -89,13 +98,14 @@ index ccf35e6..a2d4aad 100644
  # -----------------------------------------------------------------------------
  # Compute init and wandb logging
  
-@@ -133,6 +139,9 @@ def build_model_meta(depth):
+@@ -133,6 +140,10 @@ def build_model_meta(depth):
          sequence_len=args.max_seq_len, vocab_size=vocab_size,
          n_layer=depth, n_head=num_heads, n_kv_head=num_heads, n_embd=model_dim,
          window_pattern=args.window_pattern,
 +        symplectic_gate_enabled=args.symplectic_gate_enabled,
 +        symplectic_gate_mix=args.symplectic_gate_mix,
 +        symplectic_gate_eps=args.symplectic_gate_eps,
++        symplectic_gate_odd_layers_only=args.symplectic_gate_odd_layers_only,
      )
      with torch.device("meta"):
          model_meta = GPT(config)

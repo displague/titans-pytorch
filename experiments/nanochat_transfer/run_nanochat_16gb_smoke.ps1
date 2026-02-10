@@ -4,6 +4,7 @@ param(
     [switch]$ApplyCandidatePatch,
     [switch]$EnableCandidateGate,
     [double]$CandidateMix = 0.15,
+    [switch]$CandidateOddLayersOnly,
     [int]$Depth = 12,
     [int]$MaxSeqLen = 512,
     [int]$DeviceBatchSize = 1,
@@ -80,6 +81,12 @@ try {
         if (!$hasCandidateFlags) {
             throw "Candidate gate CLI flags are not available in nanochat. Run with -ApplyCandidatePatch."
         }
+        if ($CandidateOddLayersOnly) {
+            $hasOddLayerFlag = Select-String -Path $baseTrainPath -Pattern "--symplectic-gate-odd-layers-only" -Quiet
+            if (!$hasOddLayerFlag) {
+                throw "Odd-layer candidate flag is not available in nanochat. Refresh patch with apply_candidate_patch.ps1."
+            }
+        }
     }
 
     $env:OMP_NUM_THREADS = "1"
@@ -112,6 +119,9 @@ try {
             "--symplectic-gate-enabled",
             "--symplectic-gate-mix=$CandidateMix"
         )
+        if ($CandidateOddLayersOnly) {
+            $trainArgs += "--symplectic-gate-odd-layers-only"
+        }
     }
 
     $cmdArgs = @("-m", "scripts.base_train") + $trainArgs

@@ -340,6 +340,46 @@
 - candidate is not ready for 24h promotion.
 - longer short-window evaluation validates that regression is not a micro-window artifact.
 
+- [2026-02-10 16:01:16] Added structural odd-layer candidate path and patch-revision refresh for `nanochat` transfer harness.
+- Updated `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1`:
+- new toggle `-CandidateOddLayersOnly` (candidate-only).
+- records `candidate_odd_layers_only` in protocol summary settings.
+- Updated `experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1`:
+- new toggle `-CandidateOddLayersOnly` for smoke parity with protocol runs.
+- Updated `experiments/nanochat_transfer/apply_candidate_patch.ps1`:
+- patch revision detection now checks odd-layer markers.
+- supports `-ForceReapply` to reset target files and refresh the patch safely.
+
+- [2026-02-10 16:01:16] Extended candidate patch artifact with odd-layer CLI wiring.
+- Updated `experiments/nanochat_transfer/patches/nanochat_symplectic_candidate.patch`:
+- adds `symplectic_gate_odd_layers_only` to `nanochat/gpt.py` config and block logic.
+- adds `--symplectic-gate-odd-layers-only` to `scripts/base_train.py`.
+- includes validation for `--symplectic-gate-mix` range in `scripts/base_train.py`.
+
+- [2026-02-10 16:01:16] Ran structural odd-layer short-window sweeps.
+- Micro check (`odd_mix005_n1`, 1 seed):
+- `mean_candidate_minus_control_bpb = -0.003875`.
+- `mean_candidate_speed_ratio = 0.985745`.
+- Main retune (`odd_mix005_n64`, 2 seeds):
+- `mean_candidate_minus_control_bpb = +0.002307`.
+- `mean_candidate_speed_ratio = 0.918117`.
+- Comparison vs full-depth `mix005_n64`:
+- bpb delta improved from `+0.003640` to `+0.002307`.
+- speed ratio improved from `0.858812` to `0.918117`.
+- Follow-up (`odd_mix005_n128`, 2 seeds):
+- `mean_candidate_minus_control_bpb = +0.038428`.
+- `mean_candidate_speed_ratio = 0.911419`.
+- Interpretation:
+- odd-layer gating is a meaningful throughput improvement and narrows quality loss at `n64`.
+- candidate still regresses on quality at `n128`, so not yet promotable to 24h.
+
+- [2026-02-10 16:01:16] Reran mutation-transfer benchmark under isolated GPU load.
+- Run tag `mutation_transfer_v4` (CUDA):
+- winner: `mutation_champion` with transfer score `0.105628`.
+- next: `quorum_budget_paging` at `0.108259`, then `phase_quorum_paging` at `0.109793`.
+- Interpretation:
+- winner ordering can flip relative to earlier contention-affected passes; repeatability checks are required before champion promotion.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -381,6 +421,10 @@
 - [2026-02-10 13:13:10] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 128 -Seeds "1337,2026" -ApplyCandidatePatch -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_history.csv` -> `completed`.
 - [2026-02-10 13:31:20] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 64 -Seeds "1337,2026" -ApplyCandidatePatch -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_history.csv` -> `completed`.
 - [2026-02-10 15:07:19] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 384 -Seeds "1337,2026" -ApplyCandidatePatch -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel mix005_n384 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_mix005_n384_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_mix005_n384_history.csv` -> `completed`.
+- [2026-02-10 15:13:01] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 1 -Seeds "1337" -ApplyCandidatePatch -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -CandidateOddLayersOnly -RunLabel odd_mix005_n1 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n1_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n1_history.csv` -> `completed`.
+- [2026-02-10 15:29:36] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 64 -Seeds "1337,2026" -ApplyCandidatePatch -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -CandidateOddLayersOnly -RunLabel odd_mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n64_history.csv` -> `completed`.
+- [2026-02-10 16:00:58] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 128 -Seeds "1337,2026" -ApplyCandidatePatch -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -CandidateOddLayersOnly -RunLabel odd_mix005_n128 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n128_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n128_history.csv` -> `completed`.
+- [2026-02-10 15:13:26] `python benchmarks/benchmark_mutation_transfer.py --tag mutation_transfer_v4 --output-json benchmarks/results/mutation_transfer_latest.json --output-csv benchmarks/results/mutation_transfer_history.csv` -> `completed`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

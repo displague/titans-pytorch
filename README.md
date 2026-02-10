@@ -239,6 +239,7 @@ Recommended flow is short-window screening first, then full-horizon runs:
 - Promote only strong candidates to the full ~24h build budget.
 - On non-FA3 GPUs, use `window_pattern=L` for better utilization (harness default).
 - On Windows/Triton-missing setups, compile is disabled by default in the harness (`DisableTorchCompile=true`).
+- Serialize GPU-heavy jobs (benchmarks/protocols/pytest) to avoid cross-run contention.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/setup_nanochat.ps1
@@ -247,12 +248,20 @@ powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_can
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 30000 -Seeds "1337,2026"
 # optional retune sweep example
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_history.csv
+# structural recipe: odd layers only
+powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateOddLayersOnly -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel odd_mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n64_history.csv
 ```
 
 Protocol summary artifacts:
 - `experiments/nanochat_transfer/results/nanochat_protocol_latest.json`
 - `experiments/nanochat_transfer/results/nanochat_protocol_history.csv`
 - Includes per-run `val_bpb`, `duration_sec`, `avg_tok_per_sec`, plus candidate-vs-control deltas.
+
+Latest short-window checkpoints (2 seeds, RTX 5080 laptop GPU):
+- Full-depth candidate (`mix005_n64`): `mean_candidate_minus_control_bpb=+0.003640`, `mean_candidate_speed_ratio=0.858812`.
+- Odd-layer candidate (`odd_mix005_n64`): `mean_candidate_minus_control_bpb=+0.002307`, `mean_candidate_speed_ratio=0.918117`.
+- Odd-layer candidate (`odd_mix005_n128`): `mean_candidate_minus_control_bpb=+0.038428`, `mean_candidate_speed_ratio=0.911419`.
+- Interpretation: odd-layer routing improves throughput and narrows quality gap, but does not yet clear promotion criteria at `n128`.
 
 ## Experiments
 

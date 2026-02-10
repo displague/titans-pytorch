@@ -1,12 +1,14 @@
 # TODO
 
 ## Active
-- [2026-02-10 15:07:39] Continue retuning candidate slot after confirmed regression at true short-window scale.
-- Hypothesis: current token-complexity gate integration may need smaller mix or structural changes (not just optimizer tuning) to avoid quality loss.
-- Toggle plan: keep baseline control fixed and sweep candidate-only flags in external harness (`--symplectic-gate-mix` near `0.01` and `0.02`, plus conservative optimizer settings), no Titans default changes.
-- [2026-02-10 15:07:39] Add at least one structurally distinct candidate recipe beyond scalar mix tuning.
-- Hypothesis: layer-local gating placement or schedule-based activation may preserve speed/quality trade-offs better than constant full-depth gating.
-- Toggle plan: add one new optional candidate recipe slot in the transfer harness and benchmark it under `NumIterations=64` and then `128`.
+- [2026-02-10 16:01:16] Continue retuning candidate slot after odd-layer structural probe.
+- Evidence: odd-layer candidate at `n64` improved over full-depth candidate (`mean_candidate_minus_control_bpb`: `+0.002307` vs `+0.003640`, `mean_candidate_speed_ratio`: `0.918` vs `0.859`), but at `n128` still regressed (`+0.038428`, speed `0.911`).
+- Hypothesis: schedule-based gate activation (warmup/ramp) can preserve throughput gains while reducing quality penalty at longer windows.
+- Toggle plan: add candidate-only schedule knobs in the external `nanochat` patch and sweep `--symplectic-gate-mix` in `0.01`, `0.02`, and `0.05` with odd-layer mode enabled.
+- [2026-02-10 16:01:16] Re-run and stabilize mutation-transfer ranking under isolated GPU load.
+- Evidence: clean rerun `mutation_transfer_v4` promoted `mutation_champion` (`0.105628`) over `quorum_budget_paging` (`0.108259`), reversing prior contention-affected ranking.
+- Hypothesis: winner ordering can flip under GPU contention and requires repeatability checks before champion promotion.
+- Toggle plan: execute two additional tagged reruns and require stable winner ordering (or <1% score tie) before updating the default "champion" narrative.
 - [2026-02-10 15:07:39] Promote a non-regressing short-window winner to full 24h run with checkpointed reporting.
 - Hypothesis: only candidates that beat control on both `val_bpb` and acceptable speed ratio in short windows should enter the 24h budget.
 - Toggle plan: run only external harness configs; no change to Titans runtime defaults.

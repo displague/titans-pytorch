@@ -13,6 +13,7 @@ param(
     [bool]$AutoPrepareIfMissing = $true,
     [bool]$DisableTorchCompile = $true,
     [double]$CandidateGateMix = 0.15,
+    [switch]$CandidateOddLayersOnly,
     [double]$CandidateWeightDecay = 0.18,
     [double]$CandidateMatrixLr = 0.018,
     [string]$RunLabel = "",
@@ -144,6 +145,12 @@ try {
     if (!$hasCandidateFlags) {
         throw "Candidate gate CLI flags are not available in nanochat. Run with -ApplyCandidatePatch."
     }
+    if ($CandidateOddLayersOnly) {
+        $hasOddLayerFlag = Select-String -Path $baseTrainPath -Pattern "--symplectic-gate-odd-layers-only" -Quiet
+        if (!$hasOddLayerFlag) {
+            throw "Odd-layer candidate flag is not available in nanochat. Refresh patch with apply_candidate_patch.ps1."
+        }
+    }
 
     $env:OMP_NUM_THREADS = "1"
     $env:PYTHONUTF8 = "1"
@@ -152,6 +159,17 @@ try {
     if ($DisableTorchCompile) {
         $env:TORCHDYNAMO_DISABLE = "1"
         $env:TORCHINDUCTOR_DISABLE = "1"
+    }
+
+    $candidateExtra = @(
+        "--window-pattern=$WindowPattern",
+        "--weight-decay=$CandidateWeightDecay",
+        "--matrix-lr=$CandidateMatrixLr",
+        "--symplectic-gate-enabled",
+        "--symplectic-gate-mix=$CandidateGateMix"
+    )
+    if ($CandidateOddLayersOnly) {
+        $candidateExtra += "--symplectic-gate-odd-layers-only"
     }
 
     $recipes = @(
@@ -163,13 +181,7 @@ try {
             # Candidate slot for Titans-inspired transfer changes.
             # Requires apply_candidate_patch.ps1.
             Name = "candidate_slot"
-            Extra = @(
-                "--window-pattern=$WindowPattern",
-                "--weight-decay=$CandidateWeightDecay",
-                "--matrix-lr=$CandidateMatrixLr",
-                "--symplectic-gate-enabled",
-                "--symplectic-gate-mix=$CandidateGateMix"
-            )
+            Extra = $candidateExtra
         }
     )
 
@@ -288,6 +300,7 @@ try {
             window_pattern = $WindowPattern
             candidate_patch_applied = [bool]$ApplyCandidatePatch
             candidate_gate_mix = $CandidateGateMix
+            candidate_odd_layers_only = [bool]$CandidateOddLayersOnly
             candidate_weight_decay = $CandidateWeightDecay
             candidate_matrix_lr = $CandidateMatrixLr
             run_label = $RunLabel

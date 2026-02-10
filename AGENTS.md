@@ -81,4 +81,6 @@ Portable directions for experimental work in this repository so changes remain o
 - Define one reproducible "control vs champion" recipe for 16GB GPUs before running long jobs.
 - Record runtime budget, seed, checkpoint cadence, and success/regression metrics in `TODO.md` and `IMPLEMENTED.md`.
 - Emit structured run summaries (JSON/CSV) from harness scripts so directional results are machine-readable and easy to compare across reruns.
+- Do not run GPU-heavy pytest and benchmark/protocol jobs at the same time; serialize heavy runs to avoid cross-run contamination.
+- If contention or interruption is suspected, rerun with a new tag and record both superseded and replacement runs in `IMPLEMENTED.md`.
 
