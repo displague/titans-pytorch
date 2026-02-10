@@ -1,9 +1,6 @@
 # TODO
 
 ## Active
-- [2026-02-08 19:54:39] Compare mutation/selection champion against hand-designed variants on long-horizon and interference tasks.
-- Hypothesis: evolved gate configs can outperform manually curated variants under equal step/latency budgets.
-- Toggle plan: reuse mutation benchmark winner as a named preset in benchmark scripts only; runtime defaults unchanged.
 - [2026-02-08 20:38:49] Calibrate kinetics-coupled configs on long-horizon recovery and interference benchmarks.
 - Hypothesis: tuned `kinetics_mix` with quorum/phase options improves recovery without excessive switch suppression.
 - Toggle plan: benchmark-only sweep over `kinetics_mix` and compare against mutation-selection champion; runtime defaults unchanged.

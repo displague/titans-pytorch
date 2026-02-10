@@ -195,6 +195,19 @@
 - `benchmarks/results/codebook_transfer_baseline.json`
 - Updated `.github/workflows/test.yaml` to run lightweight benchmark variants and compare against baselines via `benchmarks/check_regression.py`.
 
+- [2026-02-10 08:01:00] Added mutation champion transfer benchmark against hand-designed variants.
+- Added `benchmarks/benchmark_mutation_transfer.py`.
+- Outputs:
+- `benchmarks/results/mutation_transfer_latest.json`
+- `benchmarks/results/mutation_transfer_history.csv`
+- Run tag `mutation_transfer_v1` (CUDA):
+- `symplectic_paging` score `0.117808`.
+- `phase_quorum_paging` score `0.108885`.
+- `quorum_budget_paging` score `0.103567` (winner).
+- `hierarchical_paging` score `0.137802`.
+- `mutation_champion` score `0.108531`.
+- Summary: mutation champion did not win; hand-designed quorum budget performed better on the transfer score.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
