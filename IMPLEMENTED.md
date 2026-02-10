@@ -174,6 +174,16 @@
 - Added optional `--codebook-baseline` and `--codebook-latest` inputs to `benchmarks/check_regression.py`.
 - Tracks `clean_mse_post`, `phase_err_post`, `interference.post_a_loss`, and `transfer_score` for `codebook_champion_paging`.
 
+- [2026-02-10 07:52:39] Added manifold-keyed paging transfer benchmark against threshold paging.
+- Added `benchmarks/benchmark_manifold_paging_transfer.py`.
+- Outputs:
+- `benchmarks/results/manifold_paging_latest.json`
+- `benchmarks/results/manifold_paging_history.csv`
+- Run tag `manifold_paging_transfer_v1` (CUDA):
+- `threshold_paging`: long clean post `0.004963`, phase post `0.049742`, interference post-A `0.007729`, score `0.119738`.
+- `manifold_keyed_paging`: long clean post `0.004750`, phase post `0.056093`, interference post-A `0.013046`, score `0.110337`.
+- Summary: manifold-keyed paging lowered the aggregate transfer score but increased post-A interference loss, so it is a tradeoff rather than a clear win.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.

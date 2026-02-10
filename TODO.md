@@ -1,7 +1,6 @@
 # TODO
 
 ## Active
-- [2026-02-08 17:38:45] Evaluate `manifold_state_keyed_paging` against threshold-step paging on long-horizon and interference tasks.
 - [2026-02-08 17:38:45] Convert threshold sweep output into documented recommended switch-rate bands.
 - [2026-02-08 17:55:14] Wire `benchmarks/check_regression.py` into CI with a checked-in rolling baseline artifact policy.
 - [2026-02-08 19:54:39] Compare mutation/selection champion against hand-designed variants on long-horizon and interference tasks.

@@ -215,6 +215,7 @@ python benchmarks/benchmark_mutation_selection.py --tag mutation_selection --out
 python benchmarks/benchmark_switch_budget.py --tag switch_budget --output-json benchmarks/results/switch_budget_latest.json
 python benchmarks/benchmark_codebook_sweep.py --tag codebook_sweep --output-json benchmarks/results/codebook_sweep_latest.json
 python benchmarks/benchmark_codebook_transfer.py --tag codebook_transfer --output-json benchmarks/results/codebook_transfer_latest.json
+python benchmarks/benchmark_manifold_paging_transfer.py --tag manifold_paging_transfer --output-json benchmarks/results/manifold_paging_latest.json
 python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_baseline.json --latest benchmarks/results/symplectic_latest.json --codebook-baseline benchmarks/results/codebook_transfer_latest.json --codebook-latest benchmarks/results/codebook_transfer_latest.json
 ```
 
