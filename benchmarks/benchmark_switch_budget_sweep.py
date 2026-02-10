@@ -21,6 +21,19 @@ def parse_float_list(text):
     return [float(v.strip()) for v in text.split(",") if v.strip()]
 
 
+def parse_optional_float_list(text):
+    values = []
+    for raw in text.split(","):
+        token = raw.strip().lower()
+        if not token:
+            continue
+        if token in ("none", "null"):
+            values.append(None)
+        else:
+            values.append(float(token))
+    return values
+
+
 def make_spiral_data(batch, seq_len, dim, device):
     t = torch.linspace(0, 4 * 3.14159, seq_len, device = device)
     x = torch.zeros(batch, seq_len, dim, device = device)
@@ -157,9 +170,10 @@ def parse_args():
     parser.add_argument("--chunk-size", type = int, default = 32)
     parser.add_argument("--steps", type = int, default = 20)
     parser.add_argument("--pages", type = int, default = 4)
-    parser.add_argument("--page-threshold", type = float, default = 0.1)
+    parser.add_argument("--page-thresholds", type = str, default = "0.05,0.2")
     parser.add_argument("--switch-targets", type = str, default = "0.1,0.3,0.5")
     parser.add_argument("--entropy-targets", type = str, default = "0.2,0.4,0.6")
+    parser.add_argument("--budget-ratios", type = str, default = "0.15,0.3")
     parser.add_argument("--switch-weight", type = float, default = 0.25)
     parser.add_argument("--entropy-weight", type = float, default = 0.1)
     parser.add_argument("--carry-state", action = "store_true", default = False)
@@ -168,7 +182,21 @@ def parse_args():
     return parser.parse_args()
 
 
-def make_model(dim, chunk_size, pages, page_threshold, device):
+def make_model(dim, chunk_size, pages, page_threshold, budget_ratio, device):
+    gate_kwargs = dict(
+        gated = True,
+        diag = True,
+        gate_mode = "soft",
+        phase_mix = 0.5,
+        phase_pairs = max(1, dim // 8),
+        quorum_mix = 0.75,
+        quorum_window = 5,
+        quorum_threshold = 0.25,
+        quorum_temperature = 0.1
+    )
+    if budget_ratio is not None and budget_ratio > 0.0:
+        gate_kwargs["budget_topk_ratio"] = budget_ratio
+
     model = NeuralMemory(
         dim = dim,
         chunk_size = chunk_size,
@@ -176,18 +204,7 @@ def make_model(dim, chunk_size, pages, page_threshold, device):
         num_pages = pages,
         manifold_state_keyed_paging = True,
         symplectic_page_threshold = page_threshold,
-        symplectic_gate_kwargs = dict(
-            gated = True,
-            diag = True,
-            gate_mode = "soft",
-            phase_mix = 0.5,
-            phase_pairs = max(1, dim // 8),
-            quorum_mix = 0.75,
-            quorum_window = 5,
-            quorum_threshold = 0.25,
-            quorum_temperature = 0.1,
-            budget_topk_ratio = 0.2
-        )
+        symplectic_gate_kwargs = gate_kwargs
     )
     return model.to(device)
 
@@ -208,70 +225,96 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
+    page_thresholds = parse_float_list(args.page_thresholds)
     switch_targets = parse_float_list(args.switch_targets)
     entropy_targets = parse_float_list(args.entropy_targets)
+    budget_ratios = parse_optional_float_list(args.budget_ratios)
 
     spiral = make_spiral_data(args.batch_size, args.seq_len, args.dim, device)
     helix = make_helix_data(args.batch_size, args.seq_len, args.dim, device)
     tasks = dict(spiral = spiral, helix = helix)
 
     trials = []
-    for switch_target in switch_targets:
-        for entropy_target in entropy_targets:
-            results = {}
-            for task_name, task_data in tasks.items():
-                unconstrained = make_model(args.dim, args.chunk_size, args.pages, args.page_threshold, device)
-                constrained = make_model(args.dim, args.chunk_size, args.pages, args.page_threshold, device)
+    for page_threshold in page_thresholds:
+        for budget_ratio in budget_ratios:
+            for switch_target in switch_targets:
+                for entropy_target in entropy_targets:
+                    results = {}
+                    for task_name, task_data in tasks.items():
+                        unconstrained = make_model(
+                            args.dim,
+                            args.chunk_size,
+                            args.pages,
+                            page_threshold,
+                            budget_ratio,
+                            device
+                        )
+                        constrained = make_model(
+                            args.dim,
+                            args.chunk_size,
+                            args.pages,
+                            page_threshold,
+                            budget_ratio,
+                            device
+                        )
 
-                unconstrained_stats = train_with_budget_control(
-                    unconstrained,
-                    task_data,
-                    args.steps,
-                    switch_budget_target = None,
-                    switch_budget_weight = 0.0,
-                    entropy_target = None,
-                    entropy_weight = 0.0,
-                    carry_state = args.carry_state
-                )
-                constrained_stats = train_with_budget_control(
-                    constrained,
-                    task_data,
-                    args.steps,
-                    switch_budget_target = switch_target,
-                    switch_budget_weight = args.switch_weight,
-                    entropy_target = entropy_target,
-                    entropy_weight = args.entropy_weight,
-                    carry_state = args.carry_state
-                )
+                        unconstrained_stats = train_with_budget_control(
+                            unconstrained,
+                            task_data,
+                            args.steps,
+                            switch_budget_target = None,
+                            switch_budget_weight = 0.0,
+                            entropy_target = None,
+                            entropy_weight = 0.0,
+                            carry_state = args.carry_state
+                        )
+                        constrained_stats = train_with_budget_control(
+                            constrained,
+                            task_data,
+                            args.steps,
+                            switch_budget_target = switch_target,
+                            switch_budget_weight = args.switch_weight,
+                            entropy_target = entropy_target,
+                            entropy_weight = args.entropy_weight,
+                            carry_state = args.carry_state
+                        )
 
-                results[task_name] = dict(
-                    unconstrained = unconstrained_stats,
-                    constrained = constrained_stats
-                )
+                        results[task_name] = dict(
+                            unconstrained = unconstrained_stats,
+                            constrained = constrained_stats
+                        )
 
-            spiral_stats = results["spiral"]
-            helix_stats = results["helix"]
-            mean_recon = 0.5 * (spiral_stats["constrained"]["recon_loss"] + helix_stats["constrained"]["recon_loss"])
-            mean_switch = 0.5 * (spiral_stats["constrained"]["switch_rate"] + helix_stats["constrained"]["switch_rate"])
-            mean_entropy = 0.5 * (spiral_stats["constrained"]["entropy"] + helix_stats["constrained"]["entropy"])
-            score = 0.5 * (aggregate_score(spiral_stats) + aggregate_score(helix_stats))
+                    spiral_stats = results["spiral"]
+                    helix_stats = results["helix"]
+                    mean_recon = 0.5 * (spiral_stats["constrained"]["recon_loss"] + helix_stats["constrained"]["recon_loss"])
+                    mean_switch = 0.5 * (spiral_stats["constrained"]["switch_rate"] + helix_stats["constrained"]["switch_rate"])
+                    mean_entropy = 0.5 * (spiral_stats["constrained"]["entropy"] + helix_stats["constrained"]["entropy"])
+                    score = 0.5 * (aggregate_score(spiral_stats) + aggregate_score(helix_stats))
 
-            trial = dict(
-                params = dict(switch_target = switch_target, entropy_target = entropy_target),
-                tasks = results,
-                summary = dict(
-                    mean_recon = mean_recon,
-                    mean_switch = mean_switch,
-                    mean_entropy = mean_entropy,
-                    score = score
-                )
-            )
-            trials.append(trial)
+                    trial = dict(
+                        params = dict(
+                            page_threshold = page_threshold,
+                            budget_ratio = budget_ratio,
+                            switch_target = switch_target,
+                            entropy_target = entropy_target
+                        ),
+                        tasks = results,
+                        summary = dict(
+                            mean_recon = mean_recon,
+                            mean_switch = mean_switch,
+                            mean_entropy = mean_entropy,
+                            score = score
+                        )
+                    )
+                    trials.append(trial)
 
-            print(
-                f"switch={switch_target:.2f} entropy={entropy_target:.2f} | "
-                f"recon={mean_recon:.6f} switch_rate={mean_switch:.3f} entropy={mean_entropy:.3f} score={score:.6f}"
-            )
+                    budget_label = "none" if budget_ratio is None else f"{budget_ratio:.2f}"
+                    print(
+                        f"thr={page_threshold:.2f} budget={budget_label} "
+                        f"switch={switch_target:.2f} entropy={entropy_target:.2f} | "
+                        f"recon={mean_recon:.6f} switch_rate={mean_switch:.3f} entropy={mean_entropy:.3f} "
+                        f"score={score:.6f}"
+                    )
 
     trials.sort(key = lambda t: t["summary"]["score"])
     best = trials[0]
@@ -293,7 +336,8 @@ if __name__ == "__main__":
             chunk_size = args.chunk_size,
             steps = args.steps,
             pages = args.pages,
-            page_threshold = args.page_threshold,
+            page_thresholds = page_thresholds,
+            budget_ratios = budget_ratios,
             switch_targets = switch_targets,
             entropy_targets = entropy_targets,
             switch_weight = args.switch_weight,

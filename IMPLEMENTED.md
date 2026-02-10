@@ -226,6 +226,12 @@
 - Best `switch_target=0.10`, `entropy_target=0.60`, score `0.504275`.
 - Observation: switch rates stayed ~`1.0` across targets in this sweep, so nontrivial reduction was not achieved.
 
+- [2026-02-10 08:12:50] Expanded switch-budget sweep to vary page thresholds and quorum budget ratios.
+- Added `page_thresholds` and `budget_ratios` sweeps in `benchmarks/benchmark_switch_budget_sweep.py` (supports `none`).
+- Rerun tag `switch_budget_sweep_v2` showed reduced switch rates for higher thresholds and tighter budgets (best score at `thr=0.20`, `budget=0.15`, `switch=0.10`, `entropy=0.60`).
+
+- [2026-02-10 08:12:50] Updated paging test to use stateful `active_page_indices` instead of deprecated `active_page_index`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.

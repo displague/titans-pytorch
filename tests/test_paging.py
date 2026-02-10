@@ -18,17 +18,18 @@ def test_objective_reduction_page_switch():
 
     x = torch.randn(1, seq_len, dim)
 
-    # initial page is 0
-    assert mem.active_page_index.item() == 0
+    # Force a switch on every forward by lowering threshold.
+    mem.symplectic_page_threshold = -1.0
 
+    state = None
     # first forward should switch to page 1
-    _ = mem(x)
-    assert mem.active_page_index.item() == 1
+    _, state = mem(x, state = state)
+    assert state.active_page_indices.item() == 1
 
     # second forward should switch to page 2
-    _ = mem(x)
-    assert mem.active_page_index.item() == 2
+    _, state = mem(x, state = state)
+    assert state.active_page_indices.item() == 2
 
     # retrieved shape always matches input
-    retrieved, _ = mem(x)
+    retrieved, _ = mem(x, state = state)
     assert retrieved.shape == x.shape
