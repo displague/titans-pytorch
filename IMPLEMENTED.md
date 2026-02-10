@@ -170,6 +170,10 @@
 - interference post-B task-A loss from `0.008036` to `0.007104` (`+11.60%`).
 - aggregate transfer score from `0.105256` to `0.100389` (`+4.62%`).
 
+- [2026-02-10 07:50:11] Extended regression guard to cover codebook transfer champion metrics.
+- Added optional `--codebook-baseline` and `--codebook-latest` inputs to `benchmarks/check_regression.py`.
+- Tracks `clean_mse_post`, `phase_err_post`, `interference.post_a_loss`, and `transfer_score` for `codebook_champion_paging`.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -190,6 +194,7 @@
 - [2026-02-09 00:54:38] `python -m pytest -q tests/test_titans.py` -> `5193 passed`, `5 skipped`.
 - [2026-02-09 08:03:57] `python -m pytest -q tests/test_symplectic.py` -> `19 passed`.
 - [2026-02-09 08:03:57] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
+- [2026-02-10 07:50:11] `python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_latest.json --latest benchmarks/results/symplectic_latest.json --codebook-baseline benchmarks/results/codebook_transfer_latest.json --codebook-latest benchmarks/results/codebook_transfer_latest.json` -> `passed`.
 - [2026-02-10 06:45:13] `python -m pytest -q tests/test_symplectic.py` -> `19 passed`.
 - [2026-02-10 06:45:13] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
 

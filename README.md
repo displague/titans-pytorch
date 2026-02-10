@@ -5,17 +5,17 @@
 ## Titans - Pytorch
 ### Symplectic Gating and Manifold Paging (Objective Reduction)
 
-This project explores optional, research-only extensions to Titans’ Neural Memory based on symplectic “complexity” signals and Penrose-style Objective Reduction.
+This project explores optional, research-only extensions to Titans' Neural Memory based on symplectic "complexity" signals and Penrose-style Objective Reduction.
 
 - Baseline remains unchanged by default. All new behavior is behind flags.
 - Symplectic Gating: attenuates memory decay when local twist/complexity is high.
-- Manifold Paging: when complexity exceeds a threshold, gradient updates are routed to a fresh “page” (head group) to avoid destructive interference.
+- Manifold Paging: when complexity exceeds a threshold, gradient updates are routed to a fresh "page" (head group) to avoid destructive interference.
 
 Key flags on `NeuralMemory`:
 
-- `use_symplectic_gating: bool` — default False (off). When True, decay is modulated by a learned scale and a per-chunk max of a tanh(wedge) complexity.
-- `num_pages: int` — default 1. When >1, internal heads are expanded by pages (user_heads × num_pages). Writes route to the active page; reads pool across all pages.
-- `symplectic_page_threshold: float` — threshold for page switch (collapse). Lower values induce more frequent paging; default ~0.5.
+- `use_symplectic_gating: bool` - default False (off). When True, decay is modulated by a learned scale and a per-chunk max of a tanh(wedge) complexity.
+- `num_pages: int` - default 1. When >1, internal heads are expanded by pages (user_heads x num_pages). Writes route to the active page; reads pool across all pages.
+- `symplectic_page_threshold: float` - threshold for page switch (collapse). Lower values induce more frequent paging; default ~0.5.
 
 Minimal usage:
 
@@ -36,7 +36,7 @@ mem_page.symplectic_page_threshold = 0.2  # optional tuning
 Trade-offs:
 
 - Interference: Paging can reduce catastrophic forgetting on conflicting tasks (A/B).
-- Overhead: Internal ops scale with pages × heads; paging increases compute. Consider smaller `num_pages` (e.g., 2), moderate `chunk_size`, and fewer heads.
+- Overhead: Internal ops scale with pages x heads; paging increases compute. Consider smaller `num_pages` (e.g., 2), moderate `chunk_size`, and fewer heads.
 
 Benchmarks:
 
@@ -215,7 +215,7 @@ python benchmarks/benchmark_mutation_selection.py --tag mutation_selection --out
 python benchmarks/benchmark_switch_budget.py --tag switch_budget --output-json benchmarks/results/switch_budget_latest.json
 python benchmarks/benchmark_codebook_sweep.py --tag codebook_sweep --output-json benchmarks/results/codebook_sweep_latest.json
 python benchmarks/benchmark_codebook_transfer.py --tag codebook_transfer --output-json benchmarks/results/codebook_transfer_latest.json
-python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_baseline.json --latest benchmarks/results/symplectic_latest.json
+python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_baseline.json --latest benchmarks/results/symplectic_latest.json --codebook-baseline benchmarks/results/codebook_transfer_latest.json --codebook-latest benchmarks/results/codebook_transfer_latest.json
 ```
 
 ## Experiments
@@ -341,3 +341,4 @@ $ uv run train_mac.py
     url    = {https://api.semanticscholar.org/CorpusID:278996373}
 }
 ```
+

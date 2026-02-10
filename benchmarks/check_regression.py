@@ -8,6 +8,18 @@ def parse_args():
     parser.add_argument("--baseline", type = str, required = True, help = "Path to baseline benchmark JSON.")
     parser.add_argument("--latest", type = str, required = True, help = "Path to latest benchmark JSON.")
     parser.add_argument(
+        "--codebook-baseline",
+        type = str,
+        default = None,
+        help = "Optional baseline JSON from benchmark_codebook_transfer.py."
+    )
+    parser.add_argument(
+        "--codebook-latest",
+        type = str,
+        default = None,
+        help = "Optional latest JSON from benchmark_codebook_transfer.py."
+    )
+    parser.add_argument(
         "--max-loss-regression-pct",
         type = float,
         default = 5.0,
@@ -126,6 +138,51 @@ def main():
                 threshold_pct = threshold
             )
         )
+
+    if (args.codebook_baseline is None) ^ (args.codebook_latest is None):
+        raise ValueError("Both --codebook-baseline and --codebook-latest must be provided together.")
+
+    if args.codebook_baseline and args.codebook_latest:
+        codebook_baseline = json.loads(Path(args.codebook_baseline).read_text(encoding = "utf-8"))
+        codebook_latest = json.loads(Path(args.codebook_latest).read_text(encoding = "utf-8"))
+        codebook_metrics = [
+            (
+                "codebook_transfer.clean_mse_post",
+                "variants.codebook_champion_paging.long_horizon.clean_mse_post",
+                "lower_better",
+                args.max_loss_regression_pct
+            ),
+            (
+                "codebook_transfer.phase_err_post",
+                "variants.codebook_champion_paging.long_horizon.phase_err_post",
+                "lower_better",
+                args.max_loss_regression_pct
+            ),
+            (
+                "codebook_transfer.interference_post_a",
+                "variants.codebook_champion_paging.interference.post_a_loss",
+                "lower_better",
+                args.max_loss_regression_pct
+            ),
+            (
+                "codebook_transfer.transfer_score",
+                "variants.codebook_champion_paging.transfer_score",
+                "lower_better",
+                args.max_loss_regression_pct
+            )
+        ]
+        for name, path, direction, threshold in codebook_metrics:
+            baseline_value = get_path(codebook_baseline, path)
+            latest_value = get_path(codebook_latest, path)
+            results.append(
+                evaluate_metric(
+                    name = name,
+                    baseline = baseline_value,
+                    latest = latest_value,
+                    direction = direction,
+                    threshold_pct = threshold
+                )
+            )
 
     print("Regression Check")
     print("-" * 88)
