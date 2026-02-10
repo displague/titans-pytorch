@@ -43,6 +43,14 @@ Benchmarks:
 - Paging Interference Benchmark: `benchmarks/benchmark_paging.py` compares Baseline vs Symplectic+Paging for interference and step-time overhead.
 - Symplectic Timing Benchmark: see `benchmarks/benchmark_symplectic.py`.
 
+Paging threshold bands (toy sweep, `benchmark_threshold_sweep.py`):
+
+- High switch-rate: `symplectic_page_threshold` in `0.05` to `0.10` (roughly 4 switches per 12 steps).
+- Moderate switch-rate: `0.20` (roughly 0.7 switches per 12 steps).
+- Low or off: `0.35` and above (zero switches observed in the sweep).
+
+Recalibrate these bands for your sequence length, chunk size, and gate settings.
+
 Expected outcomes (toy setting):
 
 - Paging reduces interference (lower post-B loss on task A).

@@ -184,6 +184,11 @@
 - `manifold_keyed_paging`: long clean post `0.004750`, phase post `0.056093`, interference post-A `0.013046`, score `0.110337`.
 - Summary: manifold-keyed paging lowered the aggregate transfer score but increased post-A interference loss, so it is a tradeoff rather than a clear win.
 
+- [2026-02-10 07:53:25] Documented paging threshold switch-rate bands in `README.md` based on `benchmark_threshold_sweep.py`.
+- High switch-rate: `0.05` to `0.10`.
+- Moderate: `0.20`.
+- Low or off: `0.35` and above.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
