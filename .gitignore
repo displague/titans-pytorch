@@ -103,6 +103,7 @@ ipython_config.py
 #   commonly ignored for libraries.
 uv.lock
 benchmarks/results/
+external/nanochat/
 
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.

@@ -232,6 +232,31 @@
 
 - [2026-02-10 08:12:50] Updated paging test to use stateful `active_page_indices` instead of deprecated `active_page_index`.
 
+- [2026-02-10 08:34:39] Extended mutation-selection benchmark with opt-in transfer-aware fitness.
+- Updated `benchmarks/benchmark_mutation_selection.py` with:
+- `--use-transfer-fitness`, `--transfer-weight`
+- long-horizon knobs (`--long-seq-len`, `--long-warmup-steps`, `--long-perturb-steps`, `--long-recovery-steps`)
+- interference knobs (`--interference-steps`, `--interference-eval-iters`)
+- Behavior: default remains classic spiral/helix fitness unless transfer fitness is explicitly enabled.
+- Run tag `mutation_selection_transfer_v1` (CUDA, steps=8, population=6, generations=3, transfer-weight=0.7):
+- generation-1 best fitness `0.076419` with candidate:
+- `phase_mix=0.5`, `quorum_mix=0.75`, `budget_topk_ratio=0.3`, `hierarchical=False`, `quorum_window=5`, `quorum_threshold=0.25`, `quorum_temperature=0.15`.
+
+- [2026-02-10 08:34:39] Reran mutation transfer benchmark cleanly after GPU contention.
+- Run tag `mutation_transfer_v2` (CUDA):
+- winner remained `quorum_budget_paging` with score `0.102306`.
+- `mutation_champion` score `0.103167`.
+
+- [2026-02-10 08:40:59] Added isolated `nanochat` transfer harness for 16GB GPU experiments.
+- Added files:
+- `experiments/nanochat_transfer/README.md`
+- `experiments/nanochat_transfer/setup_nanochat.ps1`
+- `experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1`
+- `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1`
+- Added ignore rule for local clone workspace: `external/nanochat/`.
+- Added `README.md` section with setup/smoke/24h commands.
+- Outcome: external pilot is now reproducible and isolated from core Titans behavior.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -255,6 +280,11 @@
 - [2026-02-10 07:50:11] `python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_latest.json --latest benchmarks/results/symplectic_latest.json --codebook-baseline benchmarks/results/codebook_transfer_latest.json --codebook-latest benchmarks/results/codebook_transfer_latest.json` -> `passed`.
 - [2026-02-10 06:45:13] `python -m pytest -q tests/test_symplectic.py` -> `19 passed`.
 - [2026-02-10 06:45:13] `python -m pytest -q tests/test_symplectic_reduction.py` -> `8 passed`.
+- [2026-02-10 08:12:50] `python -m pytest -q tests/test_paging.py` -> `1 passed`.
+- [2026-02-10 08:34:39] `python benchmarks/benchmark_mutation_selection.py --tag mutation_selection_transfer_v1 --steps 8 --population 6 --generations 3 --elites 2 --use-transfer-fitness --transfer-weight 0.7 --output-json benchmarks/results/mutation_selection_latest.json --output-csv benchmarks/results/mutation_selection_history.csv` -> `completed`.
+- [2026-02-10 08:34:39] `python benchmarks/benchmark_mutation_transfer.py --tag mutation_transfer_v2 --output-json benchmarks/results/mutation_transfer_latest.json --output-csv benchmarks/results/mutation_transfer_history.csv` -> `completed`.
+- [2026-02-10 08:40:59] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/setup_nanochat.ps1` -> `completed`.
+- [2026-02-10 08:41:49] `python benchmarks/benchmark_mutation_selection.py --tag mutation_selection_smoke --steps 2 --population 2 --generations 1 --elites 1` -> `completed`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

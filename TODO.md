@@ -1,12 +1,9 @@
 # TODO
 
 ## Active
-- [2026-02-10 08:08:25] Diagnose switch-budget sweep saturation by sweeping `symplectic_page_threshold` and `budget_topk_ratio` within `benchmark_switch_budget_sweep.py`.
-- Hypothesis: higher thresholds or tighter budgets will create nontrivial switch-rate reductions without large recon regressions.
-- Toggle plan: benchmark-only sweeps; runtime defaults unchanged.
-- [2026-02-10 08:08:25] Evolve mutation selection fitness to include long-horizon/interference losses directly, then re-run evolution.
-- Hypothesis: including transfer tasks in fitness will yield champions that generalize beyond spiral/helix loss.
-- Toggle plan: extend `benchmark_mutation_selection.py` (optional flag); runtime defaults unchanged.
+- [2026-02-10 08:34:39] Implement first optional Titans-inspired candidate patch in `nanochat` and wire it into `candidate_slot` protocol recipe.
+- Hypothesis: even a small, toggleable gating/stability patch can show directional gains against control in 24h protocol runs.
+- Toggle plan: keep patch isolated to external pilot files; no changes to Titans default runtime path.
 
 ## Research Narrative (Cross-Field Source Set)
 - Microbiology -> quorum thresholding: `https://pubmed.ncbi.nlm.nih.gov/37057353/`

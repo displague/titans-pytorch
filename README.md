@@ -220,6 +220,7 @@ Additional experiment runners:
 python benchmarks/benchmark_gate_variants.py --tag gate_variants --output-json benchmarks/results/gate_variants_latest.json
 python benchmarks/benchmark_threshold_sweep.py --tag threshold_sweep --output-json benchmarks/results/threshold_sweep_latest.json
 python benchmarks/benchmark_mutation_selection.py --tag mutation_selection --output-json benchmarks/results/mutation_selection_latest.json
+python benchmarks/benchmark_mutation_selection.py --tag mutation_selection_transfer --use-transfer-fitness --transfer-weight 0.7 --steps 8 --population 6 --generations 3 --output-json benchmarks/results/mutation_selection_latest.json
 python benchmarks/benchmark_switch_budget.py --tag switch_budget --output-json benchmarks/results/switch_budget_latest.json
 python benchmarks/benchmark_codebook_sweep.py --tag codebook_sweep --output-json benchmarks/results/codebook_sweep_latest.json
 python benchmarks/benchmark_codebook_transfer.py --tag codebook_transfer --output-json benchmarks/results/codebook_transfer_latest.json
@@ -228,6 +229,16 @@ python benchmarks/benchmark_mutation_transfer.py --tag mutation_transfer --outpu
 python benchmarks/benchmark_kinetics_sweep.py --tag kinetics_sweep --output-json benchmarks/results/kinetics_sweep_latest.json
 python benchmarks/benchmark_switch_budget_sweep.py --tag switch_budget_sweep --output-json benchmarks/results/switch_budget_sweep_latest.json
 python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_baseline.json --latest benchmarks/results/symplectic_latest.json --codebook-baseline benchmarks/results/codebook_transfer_baseline.json --codebook-latest benchmarks/results/codebook_transfer_latest.json
+```
+
+## Nanochat Transfer Pilot (16GB)
+
+The repo includes an isolated pilot harness for trying Titans-inspired ideas in `nanochat` without changing Titans defaults.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/setup_nanochat.ps1
+powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -PrepareData
+powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -PrepareData -NumIterations 30000
 ```
 
 ## Experiments
