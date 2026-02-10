@@ -11,6 +11,7 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
 - `setup_nanochat.ps1`: clone/update `nanochat` and print pinned commit info.
 - `run_nanochat_16gb_smoke.ps1`: short single-GPU fit/smoke run recipe for 16GB cards.
 - `run_nanochat_24h_protocol.ps1`: repeatable control/candidate protocol with seeds.
+  - Supports candidate tuning flags: `-CandidateGateMix`, `-CandidateWeightDecay`, `-CandidateMatrixLr`, and `-RunLabel`.
 - `apply_candidate_patch.ps1`: applies optional Titans-inspired patch to `nanochat`.
 - `revert_candidate_patch.ps1`: reverts the optional patch.
 
@@ -32,6 +33,7 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1`
 4. If stable, run long protocol:
    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 30000 -Seeds "1337,2026"`
+   - Example retune run: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_history.csv`
    - Summary output:
    - `experiments/nanochat_transfer/results/nanochat_protocol_latest.json`
    - `experiments/nanochat_transfer/results/nanochat_protocol_history.csv`

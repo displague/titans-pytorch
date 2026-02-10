@@ -12,6 +12,10 @@ param(
     [int]$TokenizerMaxChars = 2000000000,
     [bool]$AutoPrepareIfMissing = $true,
     [bool]$DisableTorchCompile = $true,
+    [double]$CandidateGateMix = 0.15,
+    [double]$CandidateWeightDecay = 0.18,
+    [double]$CandidateMatrixLr = 0.018,
+    [string]$RunLabel = "",
     [string]$OutputJson = "experiments/nanochat_transfer/results/nanochat_protocol_latest.json",
     [string]$OutputCsv = "experiments/nanochat_transfer/results/nanochat_protocol_history.csv"
 )
@@ -78,6 +82,15 @@ if ($normalizedSeeds.Count -eq 0) {
     throw "At least one seed is required."
 }
 $Seeds = $normalizedSeeds
+if ($CandidateGateMix -lt 0 -or $CandidateGateMix -gt 1) {
+    throw "CandidateGateMix must be in [0, 1]."
+}
+if ($CandidateWeightDecay -le 0) {
+    throw "CandidateWeightDecay must be > 0."
+}
+if ($CandidateMatrixLr -le 0) {
+    throw "CandidateMatrixLr must be > 0."
+}
 
 Push-Location $NanochatDir
 try {
@@ -152,10 +165,10 @@ try {
             Name = "candidate_slot"
             Extra = @(
                 "--window-pattern=$WindowPattern",
-                "--weight-decay=0.18",
-                "--matrix-lr=0.018",
+                "--weight-decay=$CandidateWeightDecay",
+                "--matrix-lr=$CandidateMatrixLr",
                 "--symplectic-gate-enabled",
-                "--symplectic-gate-mix=0.15"
+                "--symplectic-gate-mix=$CandidateGateMix"
             )
         }
     )
@@ -165,7 +178,12 @@ try {
     foreach ($seed in $Seeds) {
         foreach ($recipe in $recipes) {
             $recipeName = $recipe["Name"]
-            $runTag = "nc_d${Depth}_${recipeName}_s${seed}"
+            if ([string]::IsNullOrWhiteSpace($RunLabel)) {
+                $runTag = "nc_d${Depth}_${recipeName}_s${seed}"
+            }
+            else {
+                $runTag = "nc_${RunLabel}_d${Depth}_${recipeName}_s${seed}"
+            }
             Write-Output "Starting $runTag"
 
             $baseArgs = @(
@@ -269,6 +287,10 @@ try {
             seeds = $Seeds
             window_pattern = $WindowPattern
             candidate_patch_applied = [bool]$ApplyCandidatePatch
+            candidate_gate_mix = $CandidateGateMix
+            candidate_weight_decay = $CandidateWeightDecay
+            candidate_matrix_lr = $CandidateMatrixLr
+            run_label = $RunLabel
         }
         runs = $runResults
         deltas = $deltaRows

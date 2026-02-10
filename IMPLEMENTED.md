@@ -315,6 +315,20 @@
 - micro-window gains did not transfer to this larger short-window budget.
 - candidate is currently not ready for 24h promotion without retuning.
 
+- [2026-02-10 13:31:20] Added tunable candidate protocol knobs for faster retuning loops.
+- Updated `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1` with:
+- `CandidateGateMix`, `CandidateWeightDecay`, `CandidateMatrixLr`, and `RunLabel` parameters.
+- Summary settings now record candidate hyperparameters and run label.
+- `RunLabel` prefixes run tags so sweep variants do not collide in checkpoint directories.
+
+- [2026-02-10 13:31:20] Ran first candidate-retune sweep (`mix005_n64`).
+- Config: `NumIterations=64`, `CandidateGateMix=0.05`, `CandidateWeightDecay=0.2`, `CandidateMatrixLr=0.02`, 2 seeds.
+- Result:
+- `mean_candidate_minus_control_bpb = +0.003640` (candidate still worse, but much smaller gap than `+0.076094` at n128 baseline candidate settings).
+- `mean_candidate_speed_ratio = 0.858812` (candidate still about `14.1%` slower).
+- Interpretation:
+- lower mix reduced quality regression magnitude, but candidate remains below control on both quality and speed.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -354,6 +368,7 @@
 - [2026-02-10 12:37:24] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -NumIterations 1 -RunTag nanochat_smoke_v2` -> `completed`.
 - [2026-02-10 12:39:31] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 1 -Seeds "1337,2026" -ApplyCandidatePatch -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_history.csv` -> `completed`.
 - [2026-02-10 13:13:10] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 128 -Seeds "1337,2026" -ApplyCandidatePatch -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_history.csv` -> `completed`.
+- [2026-02-10 13:31:20] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 64 -Seeds "1337,2026" -ApplyCandidatePatch -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_history.csv` -> `completed`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

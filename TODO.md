@@ -7,6 +7,7 @@
 - [2026-02-10 13:13:36] Retune candidate slot before any 24h promotion.
 - Hypothesis: reduced gate mix and/or optimizer retuning can recover val_bpb while preserving or limiting throughput cost.
 - Toggle plan: keep baseline control fixed and sweep candidate-only flags in the external harness (`--symplectic-gate-mix`, `--weight-decay`, `--matrix-lr`), no Titans default changes.
+- [2026-02-10 13:31:20] Interim retune result (`mix005_n64`): still regressed (`+0.003640` bpb, speed ratio `0.8588`), so continue sweep toward smaller mix and possibly schedule-only changes.
 - [2026-02-10 13:13:36] Promote a non-regressing short-window winner to full 24h run with checkpointed reporting.
 - Hypothesis: only candidates that beat control on both `val_bpb` and acceptable speed ratio in short windows should enter the 24h budget.
 - Toggle plan: run only external harness configs; no change to Titans runtime defaults.
