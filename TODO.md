@@ -1,10 +1,10 @@
 # TODO
 
 ## Active
-- [2026-02-10 08:34:39] Run short-window `nanochat` control-vs-candidate protocol (single GPU, 2 seeds) and summarize directional signal.
-- Hypothesis: 90-180 minute windows can filter weak candidates before spending a full 24h budget.
-- Toggle plan: use `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1` with reduced `--NumIterations`; Titans defaults unchanged.
-- [2026-02-10 08:34:39] Promote best short-window `nanochat` candidate to full 24h run with checkpointed reporting.
+- [2026-02-10 12:34:48] Scale the validated short-window `nanochat` protocol from 1-2 iteration smoke to a 90-180 minute window (single GPU, 2 seeds) and confirm directional stability.
+- Hypothesis: candidate gains seen in tiny windows should remain directionally positive at larger short-horizon budgets.
+- Toggle plan: run `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1` with reduced `--NumIterations` and parse `nanochat_protocol_latest.json`; Titans defaults unchanged.
+- [2026-02-10 12:34:48] Promote best short-window `nanochat` candidate to full 24h run with checkpointed reporting.
 - Hypothesis: short-window winner should hold or degrade gracefully at full horizon when measured by val_bpb, throughput, and stability.
 - Toggle plan: run only external harness configs; no change to Titans runtime defaults.
 

@@ -16,20 +16,26 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
 
 ## 16GB Guidance
 - Start with `--depth=12`, `--max-seq-len=512` or `1024`, and `--device-batch-size=1` or `2`.
-- Keep `--nproc_per_node=1`.
+- Use single-process runs (`python -m scripts.base_train`) for Windows compatibility.
 - Use `--total-batch-size` to recover effective batch via gradient accumulation.
+- Use `--window-pattern L` on non-FA3 GPUs (default in both harness scripts).
+- `run_nanochat_16gb_smoke.ps1` and `run_nanochat_24h_protocol.ps1` default to `DisableTorchCompile=true` to avoid Triton dependency failures.
 - Increase only one pressure knob at a time (depth, seq len, or device batch size).
 
 ## Suggested Sequence
 1. Run setup:
    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/setup_nanochat.ps1`
 2. Run smoke fit:
-   - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -PrepareData`
+   - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1`
    - Candidate smoke: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -ApplyCandidatePatch -EnableCandidateGate -CandidateMix 0.15`
 3. Apply optional candidate patch:
    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1`
 4. If stable, run long protocol:
-   - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -PrepareData -ApplyCandidatePatch -NumIterations 30000`
+   - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 30000 -Seeds "1337,2026"`
+   - Summary output:
+   - `experiments/nanochat_transfer/results/nanochat_protocol_latest.json`
+   - `experiments/nanochat_transfer/results/nanochat_protocol_history.csv`
+   - Summary fields include `val_bpb`, `duration_sec`, `avg_tok_per_sec`, and candidate-control deltas.
 
 ## Candidate Patch
 - Patch file: `experiments/nanochat_transfer/patches/nanochat_symplectic_candidate.patch`
@@ -43,3 +49,5 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
 ## Notes
 - This harness does not modify `nanochat` source by default.
 - Candidate slots in `run_nanochat_24h_protocol.ps1` are intentionally easy to edit as transfer patches mature.
+- Single-GPU protocol runs use `python -m scripts.base_train` (not distributed launch) for Windows compatibility.
+- If tokenizer artifacts are missing, both run scripts auto-run dataset/tokenizer prep by default.

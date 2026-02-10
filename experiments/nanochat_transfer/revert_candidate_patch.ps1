@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 if (!(Test-Path $NanochatDir)) {
     throw "nanochat not found at '$NanochatDir'."
 }
+$NanochatDir = (Resolve-Path $NanochatDir).Path
 
 if ([string]::IsNullOrWhiteSpace($PatchPath)) {
     $PatchPath = Join-Path $PSScriptRoot "patches/nanochat_symplectic_candidate.patch"

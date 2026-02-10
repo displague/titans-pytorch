@@ -80,4 +80,5 @@ Portable directions for experimental work in this repository so changes remain o
 - Prefer adapter/config layers and benchmark scripts over invasive source rewrites.
 - Define one reproducible "control vs champion" recipe for 16GB GPUs before running long jobs.
 - Record runtime budget, seed, checkpoint cadence, and success/regression metrics in `TODO.md` and `IMPLEMENTED.md`.
+- Emit structured run summaries (JSON/CSV) from harness scripts so directional results are machine-readable and easy to compare across reruns.
 

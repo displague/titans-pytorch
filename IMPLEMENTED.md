@@ -272,6 +272,38 @@
 - Runtime fix:
 - switched harness launches from `torchrun` to `python -m torch.distributed.run` for environments where `torchrun` is not on PATH.
 
+- [2026-02-10 12:34:48] Stabilized nanochat runner reliability after contention and CLI/runtime failures.
+- Updated `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1`:
+- removed the stray `--` separator and unsupported `--seed` forwarding.
+- normalized `-Seeds` input (supports comma-delimited values such as `"1337,2026"`).
+- moved launch to direct `python -m scripts.base_train` and added fail-fast exit-code checks.
+- defaulted to compile-disabled mode (`TORCHDYNAMO_DISABLE=1`, `TORCHINDUCTOR_DISABLE=1`) to avoid Triton dependency failures in Windows GPU runs.
+- added automatic tokenizer/data prep when artifacts are missing (`AutoPrepareIfMissing=true`).
+- switched default short-window attention pattern to `window_pattern=L` for non-FA3 GPUs.
+- added structured run summaries:
+- `experiments/nanochat_transfer/results/nanochat_protocol_latest.json`
+- `experiments/nanochat_transfer/results/nanochat_protocol_history.csv`
+- summary fields include per-run `val_bpb`, `min_val_bpb`, duration, and candidate-control deltas.
+
+- [2026-02-10 12:34:48] Updated smoke/pilot support scripts.
+- `experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1` now mirrors protocol safeguards (compile toggle, prep checks, candidate-flag validation, explicit `window_pattern`).
+- `experiments/nanochat_transfer/apply_candidate_patch.ps1` and `experiments/nanochat_transfer/revert_candidate_patch.ps1` now resolve absolute `NanochatDir` paths before applying git operations.
+- `experiments/nanochat_transfer/README.md` and root `README.md` updated with current harness defaults and summary artifact paths.
+
+- [2026-02-10 12:34:48] Completed a short-window control-vs-candidate directional pass (single GPU, 2 seeds).
+- Protocol command used `NumIterations=1`, `Seeds=1337,2026`, and candidate patch enabled.
+- Mean candidate minus control bpb: `-0.003770` (lower is better), with candidate slot slightly slower in wall time.
+- Outcome: directional signal is positive in micro-window screening; promotion to larger short-window remains pending.
+
+- [2026-02-10 12:39:31] Added throughput-aware protocol deltas for promotion gating.
+- Extended `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1` summaries with:
+- per-run `trained_tokens` and `avg_tok_per_sec`.
+- per-seed `candidate_minus_control_duration_sec` and `candidate_speed_ratio`.
+- aggregate `mean_candidate_speed_ratio`.
+- Latest 2-seed micro-window result:
+- `mean_candidate_minus_control_bpb = -0.003770`.
+- `mean_candidate_speed_ratio = 0.946965` (candidate about `5.3%` slower on average).
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -305,6 +337,11 @@
 - [2026-02-10 09:01:49] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1` -> `completed`.
 - [2026-02-10 09:01:49] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/revert_candidate_patch.ps1` -> `completed`.
 - [2026-02-10 09:01:49] `python benchmarks/benchmark_mutation_selection.py --tag mutation_selection_transfer_smoke --steps 2 --population 2 --generations 1 --elites 1 --use-transfer-fitness --transfer-weight 0.7` -> `completed`.
+- [2026-02-10 12:14:34] `python benchmarks/benchmark_mutation_transfer.py --tag mutation_transfer_v3 --output-json benchmarks/results/mutation_transfer_latest.json --output-csv benchmarks/results/mutation_transfer_history.csv` -> `completed`.
+- [2026-02-10 12:33:24] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 1 -Seeds "1337,2026" -ApplyCandidatePatch -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_history.csv` -> `completed`.
+- [2026-02-10 12:10:34] `python -m pytest -q tests/test_paging.py::test_objective_reduction_page_switch tests/test_paging.py` -> `1 passed`.
+- [2026-02-10 12:37:24] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -NumIterations 1 -RunTag nanochat_smoke_v2` -> `completed`.
+- [2026-02-10 12:39:31] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -NumIterations 1 -Seeds "1337,2026" -ApplyCandidatePatch -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_history.csv` -> `completed`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.
