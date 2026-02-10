@@ -234,11 +234,15 @@ python benchmarks/check_regression.py --baseline benchmarks/results/symplectic_b
 ## Nanochat Transfer Pilot (16GB)
 
 The repo includes an isolated pilot harness for trying Titans-inspired ideas in `nanochat` without changing Titans defaults.
+Recommended flow is short-window screening first, then full-horizon runs:
+- Use small iteration windows to rank control vs candidate quickly.
+- Promote only strong candidates to the full ~24h build budget.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/setup_nanochat.ps1
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -PrepareData
-powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -PrepareData -NumIterations 30000
+powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1
+powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -PrepareData -ApplyCandidatePatch -NumIterations 30000
 ```
 
 ## Experiments

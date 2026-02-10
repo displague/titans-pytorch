@@ -1,6 +1,7 @@
 param(
     [string]$NanochatDir = "external/nanochat",
     [switch]$PrepareData,
+    [switch]$ApplyCandidatePatch,
     [int]$Depth = 12,
     [int]$MaxSeqLen = 1024,
     [int]$DeviceBatchSize = 1,
@@ -37,6 +38,10 @@ try {
         & $python -m scripts.tok_eval
     }
 
+    if ($ApplyCandidatePatch) {
+        & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "apply_candidate_patch.ps1") -NanochatDir $NanochatDir
+    }
+
     $env:OMP_NUM_THREADS = "1"
 
     $recipes = @(
@@ -46,9 +51,15 @@ try {
         },
         @{
             # Candidate slot for Titans-inspired transfer changes.
-            # Keep command valid even before any source patching.
+            # Requires apply_candidate_patch.ps1.
             Name = "candidate_slot"
-            Extra = @("--window-pattern=SSSL", "--weight-decay=0.18", "--matrix-lr=0.018")
+            Extra = @(
+                "--window-pattern=SSSL",
+                "--weight-decay=0.18",
+                "--matrix-lr=0.018",
+                "--symplectic-gate-enabled",
+                "--symplectic-gate-mix=0.15"
+            )
         }
     )
 
@@ -73,8 +84,8 @@ try {
                 "--seed=$seed"
             )
 
-            $cmdArgs = @("--standalone", "--nproc_per_node=1", "-m", "scripts.base_train", "--") + $baseArgs + $recipe.Extra
-            & torchrun @cmdArgs
+            $cmdArgs = @("-m", "torch.distributed.run", "--standalone", "--nproc_per_node=1", "-m", "scripts.base_train", "--") + $baseArgs + $recipe.Extra
+            & $python @cmdArgs
         }
     }
 }

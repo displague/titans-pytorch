@@ -76,6 +76,7 @@ Portable directions for experimental work in this repository so changes remain o
 ## External Transfer Pilots
 - When evaluating ideas in external repos (for example, `nanochat`), isolate work under a clearly named folder and keep it optional.
 - Use `experiments/nanochat_transfer/` as the canonical harness for `nanochat` transfer work.
+- Keep external source edits reproducible by storing patch artifacts and apply/revert scripts in the harness.
 - Prefer adapter/config layers and benchmark scripts over invasive source rewrites.
 - Define one reproducible "control vs champion" recipe for 16GB GPUs before running long jobs.
 - Record runtime budget, seed, checkpoint cadence, and success/regression metrics in `TODO.md` and `IMPLEMENTED.md`.

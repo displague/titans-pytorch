@@ -257,6 +257,21 @@
 - Added `README.md` section with setup/smoke/24h commands.
 - Outcome: external pilot is now reproducible and isolated from core Titans behavior.
 
+- [2026-02-10 08:59:56] Implemented first optional Titans-inspired `nanochat` candidate patch and wired it into protocol scripts.
+- Added patch artifact:
+- `experiments/nanochat_transfer/patches/nanochat_symplectic_candidate.patch`
+- Added patch management scripts:
+- `experiments/nanochat_transfer/apply_candidate_patch.ps1`
+- `experiments/nanochat_transfer/revert_candidate_patch.ps1`
+- Candidate patch scope (`nanochat` external repo):
+- `nanochat/gpt.py`: optional token-complexity residual gate (`symplectic_gate_enabled`, `symplectic_gate_mix`, `symplectic_gate_eps`).
+- `scripts/base_train.py`: new CLI flags `--symplectic-gate-enabled`, `--symplectic-gate-mix`, `--symplectic-gate-eps`.
+- Protocol integration:
+- `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1` can apply patch and runs `candidate_slot` with gate flags.
+- `experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1` supports optional patch and candidate gate flags.
+- Runtime fix:
+- switched harness launches from `torchrun` to `python -m torch.distributed.run` for environments where `torchrun` is not on PATH.
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -285,6 +300,11 @@
 - [2026-02-10 08:34:39] `python benchmarks/benchmark_mutation_transfer.py --tag mutation_transfer_v2 --output-json benchmarks/results/mutation_transfer_latest.json --output-csv benchmarks/results/mutation_transfer_history.csv` -> `completed`.
 - [2026-02-10 08:40:59] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/setup_nanochat.ps1` -> `completed`.
 - [2026-02-10 08:41:49] `python benchmarks/benchmark_mutation_selection.py --tag mutation_selection_smoke --steps 2 --population 2 --generations 1 --elites 1` -> `completed`.
+- [2026-02-10 08:59:56] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1` -> `completed`.
+- [2026-02-10 08:59:56] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/revert_candidate_patch.ps1` -> `completed`.
+- [2026-02-10 09:01:49] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1` -> `completed`.
+- [2026-02-10 09:01:49] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/revert_candidate_patch.ps1` -> `completed`.
+- [2026-02-10 09:01:49] `python benchmarks/benchmark_mutation_selection.py --tag mutation_selection_transfer_smoke --steps 2 --population 2 --generations 1 --elites 1 --use-transfer-fitness --transfer-weight 0.7` -> `completed`.
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

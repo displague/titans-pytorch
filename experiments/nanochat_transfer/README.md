@@ -11,6 +11,8 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
 - `setup_nanochat.ps1`: clone/update `nanochat` and print pinned commit info.
 - `run_nanochat_16gb_smoke.ps1`: short single-GPU fit/smoke run recipe for 16GB cards.
 - `run_nanochat_24h_protocol.ps1`: repeatable control/candidate protocol with seeds.
+- `apply_candidate_patch.ps1`: applies optional Titans-inspired patch to `nanochat`.
+- `revert_candidate_patch.ps1`: reverts the optional patch.
 
 ## 16GB Guidance
 - Start with `--depth=12`, `--max-seq-len=512` or `1024`, and `--device-batch-size=1` or `2`.
@@ -23,8 +25,20 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/setup_nanochat.ps1`
 2. Run smoke fit:
    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -PrepareData`
-3. If stable, run long protocol:
-   - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -PrepareData -NumIterations 30000`
+   - Candidate smoke: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1 -ApplyCandidatePatch -EnableCandidateGate -CandidateMix 0.15`
+3. Apply optional candidate patch:
+   - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1`
+4. If stable, run long protocol:
+   - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -PrepareData -ApplyCandidatePatch -NumIterations 30000`
+
+## Candidate Patch
+- Patch file: `experiments/nanochat_transfer/patches/nanochat_symplectic_candidate.patch`
+- Adds optional CLI flags to `scripts.base_train`:
+  - `--symplectic-gate-enabled`
+  - `--symplectic-gate-mix`
+  - `--symplectic-gate-eps`
+- Implements tokenwise complexity gating in `nanochat/gpt.py` block updates.
+- Defaults are neutral; behavior is unchanged unless flags are enabled.
 
 ## Notes
 - This harness does not modify `nanochat` source by default.

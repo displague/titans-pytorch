@@ -1,9 +1,12 @@
 # TODO
 
 ## Active
-- [2026-02-10 08:34:39] Implement first optional Titans-inspired candidate patch in `nanochat` and wire it into `candidate_slot` protocol recipe.
-- Hypothesis: even a small, toggleable gating/stability patch can show directional gains against control in 24h protocol runs.
-- Toggle plan: keep patch isolated to external pilot files; no changes to Titans default runtime path.
+- [2026-02-10 08:34:39] Run short-window `nanochat` control-vs-candidate protocol (single GPU, 2 seeds) and summarize directional signal.
+- Hypothesis: 90-180 minute windows can filter weak candidates before spending a full 24h budget.
+- Toggle plan: use `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1` with reduced `--NumIterations`; Titans defaults unchanged.
+- [2026-02-10 08:34:39] Promote best short-window `nanochat` candidate to full 24h run with checkpointed reporting.
+- Hypothesis: short-window winner should hold or degrade gracefully at full horizon when measured by val_bpb, throughput, and stability.
+- Toggle plan: run only external harness configs; no change to Titans runtime defaults.
 
 ## Research Narrative (Cross-Field Source Set)
 - Microbiology -> quorum thresholding: `https://pubmed.ncbi.nlm.nih.gov/37057353/`
@@ -37,6 +40,8 @@
 - Taxonomy science: hierarchical class structure and stable branch-specific specialization.
 - Information theory: bottleneck trade-offs, coding efficiency, and surprise-driven switching.
 - Economic theory: resource allocation, market equilibrium, and incentive-compatible routing.
+- [2026-02-10 08:34:39] Long-range direction: commoditize local evolutionary AI build loops.
+- Focus: reusable mutation/search harnesses, reproducible benchmark protocols, and one-command local experiment orchestration.
 
 ## Process Notes
 - Completed items move to `IMPLEMENTED.md` with timestamps and test evidence.

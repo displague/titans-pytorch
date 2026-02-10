@@ -1,6 +1,9 @@
 param(
     [string]$NanochatDir = "external/nanochat",
     [switch]$PrepareData,
+    [switch]$ApplyCandidatePatch,
+    [switch]$EnableCandidateGate,
+    [double]$CandidateMix = 0.15,
     [int]$Depth = 12,
     [int]$MaxSeqLen = 512,
     [int]$DeviceBatchSize = 1,
@@ -37,21 +40,36 @@ try {
         & $python -m scripts.tok_eval
     }
 
+    if ($ApplyCandidatePatch) {
+        & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "apply_candidate_patch.ps1") -NanochatDir $NanochatDir
+    }
+
     $env:OMP_NUM_THREADS = "1"
 
-    torchrun --standalone --nproc_per_node=1 -m scripts.base_train -- `
-        --depth=$Depth `
-        --run=$RunTag `
-        --model-tag=$RunTag `
-        --max-seq-len=$MaxSeqLen `
-        --device-batch-size=$DeviceBatchSize `
-        --total-batch-size=$TotalBatchSize `
-        --eval-every=100 `
-        --eval-tokens=262144 `
-        --core-metric-every=-1 `
-        --sample-every=-1 `
-        --save-every=-1 `
-        --num-iterations=$NumIterations
+    $trainArgs = @(
+        "--depth=$Depth",
+        "--run=$RunTag",
+        "--model-tag=$RunTag",
+        "--max-seq-len=$MaxSeqLen",
+        "--device-batch-size=$DeviceBatchSize",
+        "--total-batch-size=$TotalBatchSize",
+        "--eval-every=100",
+        "--eval-tokens=262144",
+        "--core-metric-every=-1",
+        "--sample-every=-1",
+        "--save-every=-1",
+        "--num-iterations=$NumIterations"
+    )
+
+    if ($EnableCandidateGate) {
+        $trainArgs += @(
+            "--symplectic-gate-enabled",
+            "--symplectic-gate-mix=$CandidateMix"
+        )
+    }
+
+    $cmdArgs = @("-m", "torch.distributed.run", "--standalone", "--nproc_per_node=1", "-m", "scripts.base_train", "--") + $trainArgs
+    & $python @cmdArgs
 }
 finally {
     Pop-Location
