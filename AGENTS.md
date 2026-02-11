@@ -79,6 +79,7 @@ Portable directions for experimental work in this repository so changes remain o
 - Keep external source edits reproducible by storing patch artifacts and apply/revert scripts in the harness.
 - Prefer adapter/config layers and benchmark scripts over invasive source rewrites.
 - Define one reproducible "control vs champion" recipe for 16GB GPUs before running long jobs.
+- Use `experiments/nanochat_transfer/run_nanochat_full_cycle.ps1` for promotion runs so protocol + quick tests + eval are captured in one pass.
 - Record runtime budget, seed, checkpoint cadence, and success/regression metrics in `TODO.md` and `IMPLEMENTED.md`.
 - Emit structured run summaries (JSON/CSV) from harness scripts so directional results are machine-readable and easy to compare across reruns.
 - Do not run GPU-heavy pytest and benchmark/protocol jobs at the same time; serialize heavy runs to avoid cross-run contamination.

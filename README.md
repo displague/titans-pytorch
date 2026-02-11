@@ -246,6 +246,8 @@ powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/setup_nan
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_16gb_smoke.ps1
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 30000 -Seeds "1337,2026"
+# one-command long run + quick checks + eval (recommended for promotion runs)
+powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000
 # current promoted screening recipe: odd layers + scheduled activation
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateOddLayersOnly -CandidateGateStartIter 16 -CandidateGateRampIters 32 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel odd_sched16r32_mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_n64_history.csv
 ```
@@ -253,6 +255,7 @@ powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanoc
 Protocol summary artifacts:
 - `experiments/nanochat_transfer/results/nanochat_protocol_latest.json`
 - `experiments/nanochat_transfer/results/nanochat_protocol_history.csv`
+- `experiments/nanochat_transfer/results/nanochat_postcheck_latest.json`
 - Includes per-run `val_bpb`, `duration_sec`, `avg_tok_per_sec`, plus candidate-vs-control deltas.
 
 Latest screened checkpoints (2 seeds, RTX 5080 laptop GPU):

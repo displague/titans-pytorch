@@ -1,6 +1,12 @@
 # TODO
 
 ## Active
+- [2026-02-10 19:12:48] Execute the promoted nanochat run through the new full-cycle harness.
+- Hypothesis: a one-command protocol + postcheck flow reduces operator mistakes and gives directly comparable quality/sanity artifacts for long runs.
+- Toggle plan: run `experiments/nanochat_transfer/run_nanochat_full_cycle.ps1` with `NumIterations=6000` (about 24h on the current 5080 setup) and promoted candidate settings (`odd + schedule`) so control/candidate training, quick tests, and `base_eval` are serialized.
+- [2026-02-10 19:21:04] Progress: full-cycle run started in background.
+- Command: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000`.
+- Logs: `experiments/nanochat_transfer/results/fullcycle_odd_sched16r32_mix005_n6000.out.log`, `experiments/nanochat_transfer/results/fullcycle_odd_sched16r32_mix005_n6000.err.log`.
 - [2026-02-10 18:28:36] Promote the scheduled odd-layer candidate to a full 24h protocol run.
 - Evidence: `odd_sched16r32_mix005` remained non-regressing at all screened windows:
 - `n64`: `mean_candidate_minus_control_bpb=-0.000145`, `mean_candidate_speed_ratio=0.912058`
@@ -16,6 +22,7 @@
 - `mutation_transfer_v4`: winner `mutation_champion` (`0.105628`) vs quorum budget (`0.108259`)
 - `mutation_transfer_v5`: winner `mutation_champion` (`0.108445`) vs quorum budget (`0.109181`)
 - `mutation_transfer_v6`: winner `quorum_budget_paging` (`0.104785`) vs mutation champion (`0.106363`)
+- `mutation_transfer_v7`: winner `quorum_budget_paging` (`0.103228`) vs mutation champion (`0.104346`)
 - Hypothesis: winner ordering can flip under GPU contention and requires repeatability checks before champion promotion.
 - Toggle plan: execute additional tagged reruns and require either stable winner ordering or a <1% score tie band before updating the default "champion" narrative.
 
