@@ -248,6 +248,8 @@ powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_can
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 30000 -Seeds "1337,2026"
 # one-command long run + quick checks + eval (recommended for promotion runs)
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000
+# rerun after interruption (skips completed runs, resumes from latest checkpoints)
+powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000 -SaveEvery 500
 # current promoted screening recipe: odd layers + scheduled activation
 powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateOddLayersOnly -CandidateGateStartIter 16 -CandidateGateRampIters 32 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel odd_sched16r32_mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_n64_history.csv
 ```

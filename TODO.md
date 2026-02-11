@@ -7,13 +7,17 @@
 - [2026-02-10 19:21:04] Progress: full-cycle run started in background.
 - Command: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000`.
 - Logs: `experiments/nanochat_transfer/results/fullcycle_odd_sched16r32_mix005_n6000.out.log`, `experiments/nanochat_transfer/results/fullcycle_odd_sched16r32_mix005_n6000.err.log`.
+- [2026-02-11 08:08:09] Recovery after reboot: continue run from saved checkpoints.
+- Status: prior run completed `control_s1337` to `step=6000` and started `candidate_slot_s1337` without a checkpoint before interruption.
+- Command: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000 -SaveEvery 500`.
+- Logs: `experiments/nanochat_transfer/results/fullcycle_odd_sched16r32_mix005_n6000_resume.out.log`, `experiments/nanochat_transfer/results/fullcycle_odd_sched16r32_mix005_n6000_resume.err.log`.
 - [2026-02-10 18:28:36] Promote the scheduled odd-layer candidate to a full 24h protocol run.
 - Evidence: `odd_sched16r32_mix005` remained non-regressing at all screened windows:
 - `n64`: `mean_candidate_minus_control_bpb=-0.000145`, `mean_candidate_speed_ratio=0.912058`
 - `n128`: `mean_candidate_minus_control_bpb=-0.001091`, `mean_candidate_speed_ratio=0.917453`
 - `n384`: `mean_candidate_minus_control_bpb=-0.000097`, `mean_candidate_speed_ratio=0.911722`
 - Hypothesis: delayed/ramped gate activation is the first candidate robust enough for long-horizon promotion.
-- Toggle plan: run `NumIterations=30000` with `CandidateOddLayersOnly`, `CandidateGateStartIter=16`, `CandidateGateRampIters=32`, fixed seeds, and structured JSON/CSV tracking.
+- Toggle plan: run `NumIterations=6000` with `CandidateOddLayersOnly`, `CandidateGateStartIter=16`, `CandidateGateRampIters=32`, fixed seeds, structured JSON/CSV tracking, and checkpoint-resume enabled.
 - [2026-02-10 18:28:36] Formalize promotion thresholds for quality vs throughput.
 - Hypothesis: implicit thresholds are slowing iteration and causing ambiguity when quality improves but speed drops.
 - Toggle plan: codify an explicit `candidate_speed_ratio` floor (for example `>=0.90`) alongside `mean_candidate_minus_control_bpb <= 0`, and wire checks into docs/regression utilities.

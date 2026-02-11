@@ -442,6 +442,29 @@
 - `experiments/nanochat_transfer/results/fullcycle_odd_sched16r32_mix005_n6000.out.log`
 - `experiments/nanochat_transfer/results/fullcycle_odd_sched16r32_mix005_n6000.err.log`
 
+- [2026-02-11 08:08:09] Added checkpoint-aware continuation for nanochat protocol/full-cycle runs.
+- Updated `experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1`:
+- new options: `-ContinueFromLatest`, `-SaveEvery`.
+- behavior with `-ContinueFromLatest`:
+- skips runs already at or beyond target `NumIterations`.
+- resumes interrupted runs from latest available checkpoint step.
+- records `run_status` and `resumed_from_step` in run summaries.
+- Updated `experiments/nanochat_transfer/run_nanochat_full_cycle.ps1`:
+- default `ContinueFromLatest=true`.
+- default `SaveEvery=500` for finer-grained recovery points on long runs.
+- passthrough of resume/save knobs to protocol script.
+
+- [2026-02-11 08:08:09] Reboot recovery status and continuation launch for promoted `n6000` run.
+- Recovered artifact:
+- `control_s1337` completed to `step=6000` with `val_bpb=0.971755`.
+- Missing artifacts after interruption:
+- `candidate_slot_s1337`, `control_s2026`, `candidate_slot_s2026`.
+- Relaunched continuation with same run label:
+- skips completed `control_s1337` and continues remaining runs.
+- active logs:
+- `experiments/nanochat_transfer/results/fullcycle_odd_sched16r32_mix005_n6000_resume.out.log`
+- `experiments/nanochat_transfer/results/fullcycle_odd_sched16r32_mix005_n6000_resume.err.log`
+
 ## Validation
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic.py` -> `14 passed`.
 - [2026-02-08 17:40:33] `python -m pytest -q tests/test_symplectic_reduction.py` -> `5 passed`.
@@ -500,6 +523,8 @@
 - [2026-02-10 19:12:48] `python -m scripts.base_eval --model-tag nc_odd_sched16r32_mix005_n64_d12_candidate_slot_s1337 --eval bpb,sample --device-batch-size 4 --split-tokens 65536` (in `external/nanochat`) -> `completed`, `val bpb=1.822170`.
 - [2026-02-10 19:21:04] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 1 -Seeds "1337" -RunLabel odd_sched16r32_mix005_smoke_fullcycle_fix3 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_smoke_fullcycle_fix3_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_smoke_fullcycle_fix3_history.csv -PostcheckJson experiments/nanochat_transfer/results/nanochat_postcheck_smoke_fullcycle_fix3_latest.json` -> `completed`.
 - [2026-02-10 19:21:04] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000 ...` -> `started in background`.
+- [2026-02-11 08:08:09] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 1 -Seeds "1337" -RunLabel odd_sched16r32_mix005_smoke_fullcycle_fix3 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_smoke_fullcycle_fix3_resumecheck_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_smoke_fullcycle_fix3_resumecheck_history.csv -PostcheckJson experiments/nanochat_transfer/results/nanochat_postcheck_smoke_fullcycle_fix3_resumecheck_latest.json` -> `completed` (skip-completed path validated).
+- [2026-02-11 08:08:09] `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000 -SaveEvery 500 ...` -> `started in background` (continuation mode).
 
 ## Decisions
 - [2026-02-08 17:40:33] Keep all new experimental behavior opt-in by constructor and kwargs toggles.

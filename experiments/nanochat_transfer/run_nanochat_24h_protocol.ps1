@@ -18,6 +18,8 @@ param(
     [int]$CandidateGateRampIters = 0,
     [double]$CandidateWeightDecay = 0.18,
     [double]$CandidateMatrixLr = 0.018,
+    [int]$SaveEvery = 2000,
+    [switch]$ContinueFromLatest,
     [string]$RunLabel = "",
     [string]$OutputJson = "experiments/nanochat_transfer/results/nanochat_protocol_latest.json",
     [string]$OutputCsv = "experiments/nanochat_transfer/results/nanochat_protocol_history.csv"
@@ -99,6 +101,9 @@ if ($CandidateGateStartIter -lt 0) {
 }
 if ($CandidateGateRampIters -lt 0) {
     throw "CandidateGateRampIters must be >= 0."
+}
+if ($SaveEvery -le 0) {
+    throw "SaveEvery must be > 0."
 }
 
 Push-Location $NanochatDir
@@ -217,7 +222,69 @@ try {
             else {
                 $runTag = "nc_${RunLabel}_d${Depth}_${recipeName}_s${seed}"
             }
-            Write-Output "Starting $runTag"
+            $checkpointDir = Join-Path (Join-Path $nanochatBaseDir "base_checkpoints") $runTag
+            $resumeFromStep = -1
+            $resumeMeta = $null
+            $isSkippedCompleted = $false
+            if ($ContinueFromLatest) {
+                $resumeMeta = Read-LatestCheckpointMeta -CheckpointDir $checkpointDir
+                if ($null -ne $resumeMeta -and ($resumeMeta.PSObject.Properties.Name -contains "step")) {
+                    $savedStep = [int]$resumeMeta.step
+                    if ($savedStep -ge $NumIterations) {
+                        $isSkippedCompleted = $true
+                    }
+                    elseif ($savedStep -gt 0) {
+                        $resumeFromStep = $savedStep
+                    }
+                }
+            }
+
+            if ($isSkippedCompleted) {
+                $valBpb = $null
+                $minValBpb = $null
+                $durationSec = $null
+                if ($resumeMeta.PSObject.Properties.Name -contains "val_bpb") {
+                    $valBpb = [double]$resumeMeta.val_bpb
+                }
+                if ($resumeMeta.PSObject.Properties.Name -contains "loop_state") {
+                    $loopState = $resumeMeta.loop_state
+                    if ($null -ne $loopState -and $loopState.PSObject.Properties.Name -contains "min_val_bpb") {
+                        $minValBpb = [double]$loopState.min_val_bpb
+                    }
+                    if ($null -ne $loopState -and $loopState.PSObject.Properties.Name -contains "total_training_time") {
+                        $durationSec = [double]$loopState.total_training_time
+                    }
+                }
+                $trainedTokens = [double]($NumIterations * $TotalBatchSize)
+                $avgTokPerSec = $null
+                if ($null -ne $durationSec -and $durationSec -gt 0) {
+                    $avgTokPerSec = $trainedTokens / $durationSec
+                }
+                Write-Output "Skipping completed $runTag (step >= $NumIterations)."
+                $runResults += [PSCustomObject]@{
+                    timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                    run_tag = $runTag
+                    recipe = $recipeName
+                    seed = [string]$seed
+                    duration_sec = $durationSec
+                    trained_tokens = $trainedTokens
+                    avg_tok_per_sec = $avgTokPerSec
+                    val_bpb = $valBpb
+                    min_val_bpb = $minValBpb
+                    num_iterations = $NumIterations
+                    window_pattern = $WindowPattern
+                    resumed_from_step = [int]$NumIterations
+                    run_status = "skipped_completed"
+                }
+                continue
+            }
+
+            if ($resumeFromStep -gt 0) {
+                Write-Output "Starting $runTag (resume from step $resumeFromStep)"
+            }
+            else {
+                Write-Output "Starting $runTag"
+            }
 
             $baseArgs = @(
                 "--depth=$Depth",
@@ -230,9 +297,12 @@ try {
                 "--eval-tokens=262144",
                 "--core-metric-every=-1",
                 "--sample-every=-1",
-                "--save-every=2000",
+                "--save-every=$SaveEvery",
                 "--num-iterations=$NumIterations"
             )
+            if ($resumeFromStep -gt 0) {
+                $baseArgs += "--resume-from-step=$resumeFromStep"
+            }
 
             $cmdArgs = @("-m", "scripts.base_train") + $baseArgs + $recipe["Extra"]
             $timer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -243,7 +313,6 @@ try {
                 throw "Run '$runTag' failed with exit code $exitCode."
             }
 
-            $checkpointDir = Join-Path (Join-Path $nanochatBaseDir "base_checkpoints") $runTag
             $meta = Read-LatestCheckpointMeta -CheckpointDir $checkpointDir
             $valBpb = $null
             $minValBpb = $null
@@ -260,7 +329,7 @@ try {
             }
 
             $durationSec = [Math]::Round($timer.Elapsed.TotalSeconds, 3)
-            $trainedTokens = [double]($NumIterations * $TotalBatchSize)
+            $trainedTokens = [double](($NumIterations - [Math]::Max(0, $resumeFromStep)) * $TotalBatchSize)
             $avgTokPerSec = $null
             if ($durationSec -gt 0) {
                 $avgTokPerSec = $trainedTokens / $durationSec
@@ -278,6 +347,8 @@ try {
                 min_val_bpb = $minValBpb
                 num_iterations = $NumIterations
                 window_pattern = $WindowPattern
+                resumed_from_step = [Math]::Max(0, $resumeFromStep)
+                run_status = "completed"
             }
         }
     }
@@ -288,13 +359,17 @@ try {
         $candidate = $runResults | Where-Object { $_.seed -eq [string]$seed -and $_.recipe -eq "candidate_slot" } | Select-Object -First 1
         if ($null -ne $control -and $null -ne $candidate -and $null -ne $control.val_bpb -and $null -ne $candidate.val_bpb) {
             $speedRatio = $null
+            $durationDelta = $null
             if ($null -ne $control.avg_tok_per_sec -and $control.avg_tok_per_sec -gt 0 -and $null -ne $candidate.avg_tok_per_sec) {
                 $speedRatio = [double]$candidate.avg_tok_per_sec / [double]$control.avg_tok_per_sec
+            }
+            if ($null -ne $control.duration_sec -and $null -ne $candidate.duration_sec) {
+                $durationDelta = [double]$candidate.duration_sec - [double]$control.duration_sec
             }
             $deltaRows += [PSCustomObject]@{
                 seed = [string]$seed
                 candidate_minus_control_bpb = [double]$candidate.val_bpb - [double]$control.val_bpb
-                candidate_minus_control_duration_sec = [double]$candidate.duration_sec - [double]$control.duration_sec
+                candidate_minus_control_duration_sec = $durationDelta
                 candidate_speed_ratio = $speedRatio
             }
         }
@@ -326,6 +401,8 @@ try {
             candidate_gate_ramp_iters = $CandidateGateRampIters
             candidate_weight_decay = $CandidateWeightDecay
             candidate_matrix_lr = $CandidateMatrixLr
+            save_every = $SaveEvery
+            continue_from_latest = [bool]$ContinueFromLatest
             run_label = $RunLabel
         }
         runs = $runResults

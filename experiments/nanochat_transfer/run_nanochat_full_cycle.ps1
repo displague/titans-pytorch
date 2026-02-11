@@ -13,6 +13,8 @@ param(
     [int]$CandidateGateRampIters = 32,
     [double]$CandidateWeightDecay = 0.2,
     [double]$CandidateMatrixLr = 0.02,
+    [int]$SaveEvery = 500,
+    [bool]$ContinueFromLatest = $true,
     [string]$RunLabel = "odd_sched16r32_mix005_n6000",
     [string]$OutputJson = "",
     [string]$OutputCsv = "",
@@ -97,12 +99,16 @@ $protocolArgs = @(
     "-CandidateGateRampIters", "$CandidateGateRampIters",
     "-CandidateWeightDecay", "$CandidateWeightDecay",
     "-CandidateMatrixLr", "$CandidateMatrixLr",
+    "-SaveEvery", "$SaveEvery",
     "-RunLabel", $RunLabel,
     "-OutputJson", $OutputJson,
     "-OutputCsv", $OutputCsv
 )
 if ($CandidateOddLayersOnly) {
     $protocolArgs += "-CandidateOddLayersOnly"
+}
+if ($ContinueFromLatest) {
+    $protocolArgs += "-ContinueFromLatest"
 }
 
 Write-Output "Running protocol: $protocolScript"

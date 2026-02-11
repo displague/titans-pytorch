@@ -12,6 +12,7 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
 - `run_nanochat_16gb_smoke.ps1`: short single-GPU fit/smoke run recipe for 16GB cards.
 - `run_nanochat_24h_protocol.ps1`: repeatable control/candidate protocol with seeds.
   - Supports candidate tuning flags: `-CandidateGateMix`, `-CandidateOddLayersOnly`, `-CandidateGateStartIter`, `-CandidateGateRampIters`, `-CandidateWeightDecay`, `-CandidateMatrixLr`, and `-RunLabel`.
+  - Supports resume/recovery flags: `-ContinueFromLatest` and `-SaveEvery`.
 - `run_nanochat_full_cycle.ps1`: long protocol wrapper that also runs quick nanochat tests and `base_eval` (`bpb,sample`) for control vs candidate.
   - default quick test target: `tests/test_attention_fallback.py` (stable fast gate for this harness).
 - `apply_candidate_patch.ps1`: applies optional Titans-inspired patch to `nanochat`.
@@ -38,9 +39,11 @@ This folder is an isolated pilot harness for testing transfer of Titans-inspired
    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1`
    - Force refresh patch revision: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/apply_candidate_patch.ps1 -ForceReapply`
 4. If stable, run long protocol:
-   - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 30000 -Seeds "1337,2026"`
-   - One-command full cycle (protocol + quick checks + eval):
-   - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000`
+    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 30000 -Seeds "1337,2026"`
+    - One-command full cycle (protocol + quick checks + eval):
+    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000`
+    - Resume an interrupted long run:
+    - `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_full_cycle.ps1 -NumIterations 6000 -Seeds "1337,2026" -RunLabel odd_sched16r32_mix005_n6000 -SaveEvery 500`
    - Example retune run: `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_mix005_n64_history.csv`
    - Example structural run (odd layers only): `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 64 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateOddLayersOnly -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel odd_mix005_n64 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n64_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_mix005_n64_history.csv`
    - Example scheduled structural run (current promoted candidate): `powershell -ExecutionPolicy Bypass -File experiments/nanochat_transfer/run_nanochat_24h_protocol.ps1 -ApplyCandidatePatch -NumIterations 128 -Seeds "1337,2026" -CandidateGateMix 0.05 -CandidateOddLayersOnly -CandidateGateStartIter 16 -CandidateGateRampIters 32 -CandidateWeightDecay 0.2 -CandidateMatrixLr 0.02 -RunLabel odd_sched16r32_mix005_n128 -OutputJson experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_n128_latest.json -OutputCsv experiments/nanochat_transfer/results/nanochat_protocol_odd_sched16r32_mix005_n128_history.csv`
