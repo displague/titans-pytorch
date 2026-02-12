@@ -7,6 +7,18 @@
 
 This project explores optional, research-only extensions to Titans' Neural Memory based on symplectic "complexity" signals and Penrose-style Objective Reduction.
 
+## Agent Portability (VS Code, GitHub Copilot, Codex)
+
+This repo keeps one canonical policy in `AGENTS.md` and mirrors platform-specific integration points:
+
+- `AGENTS.md`: canonical cross-agent workflow and process policy.
+- `.github/copilot-instructions.md`: Copilot instruction entrypoint.
+- `.github/instructions/*.instructions.md`: scoped instruction overlays (for process files and Python experiment code).
+- `.github/skills/*/SKILL.md`: reusable, on-demand workflow skills.
+- `.github/prompts/*.prompt.md`: on-demand prompt playbooks.
+
+Keep these files aligned so agent behavior is consistent across local IDE and remote agent surfaces.
+
 - Baseline remains unchanged by default. All new behavior is behind flags.
 - Symplectic Gating: attenuates memory decay when local twist/complexity is high.
 - Manifold Paging: when complexity exceeds a threshold, gradient updates are routed to a fresh "page" (head group) to avoid destructive interference.

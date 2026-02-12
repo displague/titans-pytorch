@@ -1,11 +1,20 @@
 # titans-pytorch - AGENTS.md
 
 ## Purpose
-Portable directions for experimental work in this repository so changes remain optional, testable, and PR-friendly.
+Canonical, cross-agent instructions for experimental work in this repository. This file is the source of truth across Codex, VS Code agents, GitHub Copilot, and Copilot coding agent workflows.
+
+## Agent Portability Contract
+- Keep repository policy in this file (`AGENTS.md`) so multiple agents share one instruction baseline.
+- Use additional nested `AGENTS.md` files only for subdirectory-specific overrides (for example, isolated experiment harnesses).
+- Mirror concise compatibility guidance in `.github/copilot-instructions.md` for tools that auto-detect that file.
+- Use `.github/instructions/*.instructions.md` for file-scoped overlays (for example `TODO.md`/`IMPLEMENTED.md` handling).
+- Use `.github/skills/*/SKILL.md` for reusable task workflows that should load on demand.
+- Use `.github/prompts/*.prompt.md` for on-demand playbooks (for example "close out experiment run").
+- If instructions conflict: follow system/developer/user directives first, then this file, then narrower overlays.
 
 ## Core Principles
 - Work is driven from `TODO.md` with timestamps.
-- Completed work moves from `TODO.md` to `IMPLEMENTED.md` with timestamps.
+- Completed work moves from `TODO.md` to `IMPLEMENTED.md` with timestamps and evidence.
 - Prefer reusable Python tests and benchmarks over throw-away scripts.
 - Keep improvements toggleable so default behavior does not change.
 - Keep changes modular and avoid sprawling edits.
@@ -13,35 +22,41 @@ Portable directions for experimental work in this repository so changes remain o
 - Preserve temporary work with named git stashes instead of deleting it.
 
 ## Workflow Rules
-1. Toggle First
+1. Toggle first
 - New behavior must be behind explicit flags or constructor args.
 - Defaults must preserve existing behavior.
 
-2. Test First
+2. Test first
 - Exploratory work should land as tests in `tests/` or benchmarks in `benchmarks/`.
 - Keep tests deterministic where possible (fixed seeds, small shapes).
 
-3. Modular Additions
+3. Modular additions
 - Prefer focused module-level changes rather than broad rewrites.
 - Keep experimental logic close to the owning component.
 
-4. Preserve Throw-Away Work
+4. Preserve throw-away work
 - If temporary experiments are not yet reusable, stash them instead of deleting.
 - Use identifiable messages, for example:
 - `git stash push -m "experiment: symplectic adaptive-k probe"`
 
-5. Documentation and Citation
+5. Documentation and citation
 - For each enhancement, record:
 - Theory or paper context.
 - Intent and hypothesis.
 - Success and failure interpretation.
 - Add references in docstrings, `README.md`, or `IMPLEMENTED.md`.
 
-6. Progress Tracking
+6. Progress tracking
 - `README.md`: user-facing usage and feature docs.
 - `TODO.md`: active and planned work with timestamps.
-- `IMPLEMENTED.md`: timestamped AI implementation history and decisions.
+- `IMPLEMENTED.md`: timestamped implementation history and decisions.
 - When an item is completed, update both files to reflect the move.
+
+## Process File Schema
+- `TODO.md` entries should include: timestamp, hypothesis, toggle plan, and expected success/failure metrics.
+- `IMPLEMENTED.md` entries should include: timestamp, changed files/scripts, outcome, and validation commands/artifacts.
+- `README.md` should document only user-facing behavior and reproducible usage paths.
+- Prefer machine-readable artifacts (JSON/CSV) for benchmark/protocol summaries.
 
 ## Cross-Field Research Pool
 - Cosmology.
@@ -72,6 +87,7 @@ Portable directions for experimental work in this repository so changes remain o
 - Backward compatibility is required unless a breaking change is explicitly requested.
 - Keep edits scoped to the task.
 - Use non-interactive git commands.
+- Prefer workspace-relative paths in docs so instructions remain portable across machines and agents.
 
 ## External Transfer Pilots
 - When evaluating ideas in external repos (for example, `nanochat`), isolate work under a clearly named folder and keep it optional.

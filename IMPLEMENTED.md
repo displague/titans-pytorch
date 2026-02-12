@@ -16,6 +16,17 @@
 - [2026-02-08 17:26:30] `8e6f4ac` `Add long-horizon recovery benchmark and next research topic`
 
 ## Uncommitted Work (Current Session)
+- [2026-02-12 10:47:20] Added cross-agent portability instruction stack for VS Code, GitHub Copilot, and Codex.
+- Updated canonical policy in `AGENTS.md` to define layered instruction precedence and process-file schema expectations.
+- Added Copilot integration files:
+- `.github/copilot-instructions.md`
+- `.github/instructions/process-ledger.instructions.md`
+- `.github/instructions/experiments-python.instructions.md`
+- `.github/skills/experiment-closeout/SKILL.md`
+- `.github/prompts/experiment-closeout.prompt.md`
+- Updated `README.md` with an "Agent Portability (VS Code, GitHub Copilot, Codex)" section.
+- Added follow-up validation task in `TODO.md` for cross-surface discoverability and behavior parity checks.
+
 - [2026-02-08 17:40:33] Added manifold-state keyed paging prototype in `NeuralMemory`.
 - New constructor toggle: `manifold_state_keyed_paging=False` (opt-in, no default behavior change).
 - When enabled and manifold state is available, page routing uses circular mean phase angle to select a page bucket.

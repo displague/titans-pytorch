@@ -1,6 +1,9 @@
 # TODO
 
 ## Active
+- [2026-02-12 10:47:20] Validate cross-agent portability overlays in VS Code and GitHub Copilot surfaces.
+- Hypothesis: keeping `AGENTS.md` canonical and layering `.github` instructions/skills/prompts will reduce drift between Codex and Copilot agent behavior.
+- Toggle plan: run one end-to-end closeout task through VS Code agent mode and GitHub Copilot coding agent, verify `TODO.md`/`IMPLEMENTED.md` updates and prompt/skill discoverability, then record any compatibility fixes.
 - [2026-02-10 19:12:48] Execute the promoted nanochat run through the new full-cycle harness.
 - Hypothesis: a one-command protocol + postcheck flow reduces operator mistakes and gives directly comparable quality/sanity artifacts for long runs.
 - Toggle plan: run `experiments/nanochat_transfer/run_nanochat_full_cycle.ps1` with `NumIterations=6000` (about 24h on the current 5080 setup) and promoted candidate settings (`odd + schedule`) so control/candidate training, quick tests, and `base_eval` are serialized.
